@@ -57,6 +57,14 @@ void track_drum_stop(struct track_drum_engine *d);
 /* Returns 1 if REV is supported for this voice (BEETLE PCM / MONOLITH ROM).
  * Streaming BD4S samples have no reverse seeks and are rejected. */
 uint8_t track_drum_reverse_voice(struct track_drum_voice *v);
+/* Three per-hit step-FX slots, ordered FX1 -> FX2 -> FX3. Only stores
+ * playback state in transient RAM, never touches project flash/codec. */
+void track_drum_step_fx(struct track_drum_engine *d,struct track_drum_voice *v,
+                       uint8_t slot,uint8_t type,uint8_t value,uint16_t bpm);
+
+/* Set local project PCM trim in source frames, regardless of REV direction.
+ * No flash access or allocation; safe for the note-trigger audio callback. */
+uint8_t track_drum_trim_local_voice(struct track_drum_engine *d,struct track_drum_voice *v,uint8_t start,uint8_t end);
 #endif
 /* Fast, bounded 48-frame fade for -- Song Chain transitions. */
 void track_drum_choke_all(struct track_drum_engine *d);

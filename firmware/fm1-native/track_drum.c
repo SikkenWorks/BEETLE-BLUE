@@ -65,6 +65,11 @@ void track_drum_user_default(struct track_drum_timbre *p){track_drum_timbre_defa
  * deliberately not exposed in the editor. */
 #if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
 static struct track_drum_timbre blue_voice_timbre[TRACK_DRUM_POLY];
+/* Fixed-size private transient effects. Kept with song/voice RAM rather
+ * than the scarce near-memory DSP/USB DMA buffers. No allocation in ISR. */
+struct blue_drum_fx_slot {uint8_t type[3],value[3];};
+static struct blue_drum_fx_slot blue_voice_fx[TRACK_DRUM_POLY];
+
 #endif
 static const struct track_drum_timbre fallback_user={0u,50u,0u,50u,50u,50u,50u,100u,0,0u,0u};
 static const struct track_drum_timbre *drum_control(const struct track_drum_engine *d,uint8_t note){
@@ -108,7 +113,7 @@ static const uint8_t rom_index[16]={0u,1u,14u,9u,13u,10u,2u,11u,15u,12u,3u,4u,5u
  * No 64-bit divide, streaming reads or decoder loops in the ISR.
  * Original BEETLE µ-law PCM kit is kept unmodified. */
 #if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
-static int32_t blue_rom_wave(struct track_drum_voice *v,uint8_t pad){
+static int32_t blue_rom_wave(struct track_drum_voice *v,uint8_t pad,uint8_t slot){
  const struct blue_rom_patch *p=&blue_rom_patches[pad];
  v->noise_state=rnd(&v->noise_state);
  const int32_t noise=(int16_t)(v->noise_state>>16u);
@@ -128,8 +133,30 @@ static int32_t blue_rom_wave(struct track_drum_voice *v,uint8_t pad){
  const uint32_t scale=v->kit_env>>16u;
  wave=(int32_t)(((int64_t)wave*scale)>>8u);
  uint32_t sweep=v->kit_sweep;
- if(v->reverse)v->kit_phase-=p->phase_inc+sweep;
- else v->kit_phase+=p->phase_inc+sweep;
+ uint32_t inc=p->phase_inc+sweep;
+ /* MONOLITH has an independent oscillator phase. Route the step-FX tonal
+  * modulation to THAT oscillator, never only to the PCM read cursor. */
+ if(slot<TRACK_DRUM_POLY && (blue_voice_fx[slot].type[0] ||
+    blue_voice_fx[slot].type[1] || blue_voice_fx[slot].type[2])){
+  for(uint8_t j=0u;j<3u;j++){
+   uint8_t type=blue_voice_fx[slot].type[j];
+   uint8_t value=blue_voice_fx[slot].value[j];
+   if(type==7u && value){
+    uint8_t shift=value>66u?11u:value>33u?12u:13u;
+    uint32_t stage=(v->age>>shift)%3u;
+    inc=(uint32_t)(((uint64_t)inc*(stage==0u?256u:stage==1u?323u:384u))>>8u);
+   }else if((type==5u||type==6u)&&value){
+    uint8_t shift=value>66u?5u:value>33u?6u:7u;
+    uint32_t phase=(v->age>>shift)&511u;
+    int32_t tri=(int32_t)(phase>255u?511u-phase:phase)-128;
+    int32_t deviation=(int32_t)((inc>>11u)*value*tri/12800);
+    if(deviation<0 && (uint32_t)(-deviation)>=inc)inc=1u;
+    else inc=(uint32_t)((int32_t)inc+deviation);
+   }
+  }
+ }
+ if(v->reverse)v->kit_phase-=inc;
+ else v->kit_phase+=inc;
  if(sweep){uint32_t loss=sweep>>10u;if(!loss)loss=1u;v->kit_sweep-=loss;}
  if(v->reverse){
   uint32_t step=(16777215u-v->kit_env)>>p->env_shift;
@@ -195,6 +222,9 @@ int track_drum_trigger(struct track_drum_engine *d,uint8_t index){
  beetle_bd4_live_stop((uint8_t)target);
 #endif
  *v=(struct track_drum_voice){0};
+#if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
+ memset(&blue_voice_fx[target],0,sizeof(blue_voice_fx[target]));
+#endif
  v->sequence=++d->trigger_serial;v->id=id;v->component=component;
  v->source_lane=TRACK_DRUM_CHANNEL; /* native DRUM uses six routed lanes */
  /* Choke groups 1–7 are shared across factory and user samples.
@@ -306,6 +336,22 @@ void track_drum_retune_voice(struct track_drum_engine *d,struct track_drum_voice
  ,d->oneshots);
 }
 #if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
+uint8_t track_drum_trim_local_voice(struct track_drum_engine *d,struct track_drum_voice *v,uint8_t start,uint8_t end){
+ if(!d||!v||!v->active||v->id<16u||v->id>=32u||!d->oneshots||
+    end>100u||start>=end)return 0u;
+ const uint32_t total=sample_frames(v->id,d->oneshots);
+ if(!total||total>BEETLE_ONESHOT_MAX_BYTES)return 0u;
+ const uint32_t from=total*start/100u,to=total*end/100u;
+ if(to<=from||to>total)return 0u;
+ v->start_percent=start;v->end_percent=end;
+ /* Phase always advances from zero within the trim window. The renderer
+  * performs the forward/reverse source mapping, so REV never escapes it. */
+ v->phase=0u;
+ const uint32_t rate=v->phase_step?v->phase_step:1u;
+ const uint32_t max_frames=((to-from)<<16u)/rate;
+ if(v->length>(max_frames?max_frames:1u))v->length=max_frames?max_frames:1u;
+ return 1u;
+}
 uint8_t track_drum_reverse_voice(struct track_drum_voice *v){
  if(!v||!v->active || (v->id>=32u&&v->id<64u))return 0u;
  if(!v->reverse){
@@ -313,6 +359,39 @@ uint8_t track_drum_reverse_voice(struct track_drum_voice *v){
   if(v->id>=64u&&v->id<80u)v->kit_env=0u;
  }
  return 1u;
+}
+#endif
+#if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
+void track_drum_step_fx(struct track_drum_engine *d,struct track_drum_voice *v,
+                       uint8_t slot,uint8_t type,uint8_t value,uint16_t bpm){
+ if(!d||!v||!v->active||slot>=3u||type>=TRACK_FX_COUNT)return;
+ uint8_t i=(uint8_t)(v-d->voices);if(i>=TRACK_DRUM_POLY)return;
+ if(value>100u)value=100u;
+ blue_voice_fx[i].type[slot]=type;
+ blue_voice_fx[i].value[slot]=value;
+ if(type==TRACK_FX_VOLUME){
+  v->gain_q8=(uint16_t)((uint32_t)v->gain_q8*value/100u);
+ }else if(type==TRACK_FX_DRUM_PITCH){
+  int32_t pitch=(int32_t)v->pitch_semitones+(int32_t)value-12;
+  if(pitch< -36)pitch=-36;if(pitch>36)pitch=36;
+  v->pitch_semitones=(int8_t)pitch;
+  track_drum_retune_voice(d,v);
+ }else if(type==TRACK_FX_REVERSE){
+  (void)track_drum_reverse_voice(v);
+ }else if(type==8u){
+  /* CUT: at 100% use full step, at 0% the shortest click-safe gate. */
+  uint32_t step_frames=661500u/(bpm?bpm:120u);
+  uint32_t cap=(step_frames*value)/100u;
+  if(cap<32u)cap=32u;
+  if(v->length>cap)v->length=cap;
+ }
+}
+/* Cheap deterministic LFO, 0..255 triangle, no trigonometric functions. */
+static uint8_t blue_fx_triangle(uint32_t age,uint32_t period){
+ /* Power-of-two LFO avoids expensive divisions in the DMA callback. */
+ const uint8_t shift=(uint8_t)(period<2500u?2u:period<4800u?3u:period<9600u?4u:5u);
+ const uint32_t p=(age>>shift)&511u;
+ return (uint8_t)(p>255u?511u-p:p);
 }
 #endif
 void track_drum_choke_all(struct track_drum_engine *d){
@@ -339,6 +418,21 @@ static int32_t get_pcm(uint8_t id,uint32_t sample,const struct beetle_oneshot_ba
  if(off>=beetle_drum_offsets[i+1u])return 0;
  return beetle_ulaw_decode[beetle_drum_rom[off]];
 }
+#if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
+/* Read an earlier PCM source position without any delay buffers, interrupts,
+ * flash accesses or PCM history allocations. Used for factory/local PCM only.
+ * Procedural/stream sources use lightweight tonal alternatives. */
+static int32_t blue_fx_tap(const struct track_drum_voice *v,
+ const struct beetle_oneshot_bank *bank,uint32_t idx,uint32_t frames,
+ uint32_t start,uint32_t delay,const uint8_t *rom){
+ if(!rom && (v->id<16u || v->id>=32u))return 0;
+ if(idx<delay)return 0;
+ uint32_t pos=idx-delay;
+ if(pos>=frames)return 0;
+ uint32_t at=start+(v->reverse?frames-1u-pos:pos);
+ return rom?beetle_ulaw_decode[rom[at]]:get_pcm(v->id,at,bank,v->oneshot_offset);
+}
+#endif
 /* The audio callback is the only renderer on FM1. Keep the fixed per-chunk
  * voice metadata outside its limited interrupt stack, in the established
  * transient RAM pool. The values are overwritten on every render call. */
@@ -378,6 +472,9 @@ void track_drum_render(struct track_drum_engine *d,const struct track_mixer *mix
  /* Drum timbres and playback lengths are stable for each audio chunk.
   * Resolve them once, not 6 voices x 128 samples. This also bounds XIP ROM
   * table access on the audio critical path without altering any PCM math. */
+#if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
+ uint8_t fx_active[TRACK_DRUM_POLY];
+#endif
  const struct track_drum_timbre **voice_ctrl=drum_chunk_ctrl;
  uint32_t *voice_frames=drum_chunk_frames,*voice_floor=drum_chunk_floor,*voice_attack=drum_chunk_attack;
  for(uint8_t i=0;i<TRACK_DRUM_POLY;i++){
@@ -389,6 +486,10 @@ void track_drum_render(struct track_drum_engine *d,const struct track_mixer *mix
   drum_control(d,v->component);
 #endif
   voice_ctrl[i]=ctrl;
+#if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
+  fx_active[i]=(uint8_t)(blue_voice_fx[i].type[0] |
+    blue_voice_fx[i].type[1] | blue_voice_fx[i].type[2]);
+#endif
   /* Expensive /100 division is evaluated once per block, not 768 times. */
   drum_eq_coeff[i][0]=(int16_t)(((uint32_t)(50u+ctrl->eq_low)*256u+50u)/100u);
   drum_eq_coeff[i][1]=(int16_t)(((uint32_t)(50u+ctrl->eq_mid)*256u+50u)/100u);
@@ -397,7 +498,19 @@ void track_drum_render(struct track_drum_engine *d,const struct track_mixer *mix
   drum_chunk_rom[i]=v->id<16u?beetle_drum_rom+beetle_drum_offsets[rom_index[v->id]]:0;
 #endif
   if(v->active){
-   voice_frames[i]=(v->id>=32u&&v->id<64u)?0xFFFFFFFFu:sample_frames(v->id,d->oneshots);
+   /* Pack [trim_start:16|trim_span:16] into the existing metadata word.
+    * This keeps FM1 pool RAM unchanged (no extra per-voice state). Streamed
+    * BD4S gets its original 0xffffffff sentinel and is never truncated. */
+   if(v->id>=32u&&v->id<64u)voice_frames[i]=0xFFFFFFFFu;
+#if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
+   else if(v->id>=16u&&v->id<32u){
+    const uint32_t n=sample_frames(v->id,d->oneshots);
+    const uint32_t from=n*v->start_percent/100u,to=n*v->end_percent/100u;
+    const uint32_t span=to>from?to-from:0u;
+    voice_frames[i]=(from<<16u)|span;
+   }
+#endif
+   else voice_frames[i]=sample_frames(v->id,d->oneshots);
    voice_floor[i]=(uint32_t)ctrl->sustain*16777215u/100u;
    voice_attack[i]=(uint32_t)ctrl->attack*25u;
   }else voice_frames[i]=voice_floor[i]=voice_attack[i]=0u;
@@ -420,7 +533,12 @@ void track_drum_render(struct track_drum_engine *d,const struct track_mixer *mix
    struct track_drum_voice *v=&d->voices[i];if(!v->active)continue;
    const struct track_drum_timbre *ctrl=voice_ctrl[i];
    const uint32_t idx=v->phase>>16u;
-   if(idx>=voice_frames[i]||v->age>=v->length){v->active=0u;continue;}
+   const uint32_t pcm_count=
+#if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
+    (v->id>=16u&&v->id<32u)?(voice_frames[i]&65535u):
+#endif
+    voice_frames[i];
+   if(idx>=pcm_count||v->age>=v->length){v->active=0u;continue;}
 #if defined(BEETLE_NATIVE_V2) && BEETLE_NATIVE_V2
    int16_t streamed=0;
    if(v->id>=32u && v->id<64u){
@@ -455,28 +573,92 @@ void track_drum_render(struct track_drum_engine *d,const struct track_mixer *mix
    {
 #if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
     if(v->id>=64u && v->id<80u){
-      wave=blue_rom_wave(v,(uint8_t)(v->id-64u));
+      wave=blue_rom_wave(v,(uint8_t)(v->id-64u),i);
     }else
 #endif
     {
     /* Literal reverse addressing for immutable BEETLE ROM and project-local
      * sample PCM. Other voices keep their original forward playhead. */
-    const uint32_t rev=(uint32_t)(v->reverse&&voice_frames[i]!=0u);
-    const uint32_t at=rev?voice_frames[i]-1u-idx:idx;
-    const uint32_t next=rev?(at?at-1u:voice_frames[i]):idx+1u;
+    const uint32_t rev=(uint32_t)(v->reverse&&pcm_count!=0u);
+#if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
+    const uint32_t source_start=(v->id>=16u&&v->id<32u)?(voice_frames[i]>>16u):0u;
+#else
+    const uint32_t source_start=0u;
+#endif
+    const uint32_t at=source_start+(rev?pcm_count-1u-idx:idx);
+    const uint32_t next=rev?at-1u:at+1u;
+    /* A final interpolated frame must not fetch outside the trimmed region.
+     * This is especially important when REV ends at the original attack. */
+    const uint8_t has_next=(uint8_t)(idx+1u<pcm_count);
     const int32_t one=rom?beetle_ulaw_decode[rom[at]]:
          get_pcm(v->id,at,d->oneshots,v->oneshot_offset);
-    const int32_t two=rom?(next<voice_frames[i]?beetle_ulaw_decode[rom[next]]:0):
-         get_pcm(v->id,next,d->oneshots,v->oneshot_offset);
+    const int32_t two=!has_next?0:(rom?beetle_ulaw_decode[rom[next]]:
+         get_pcm(v->id,next,d->oneshots,v->oneshot_offset));
     wave=one+(int32_t)(((int64_t)(two-one)*frac)>>16u);
     }
    }
+#if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
+   /* DSP step FX in deterministic order. Delay/reverb use bounded ROM taps
+    * for PCM without an SRAM circular buffer. Every branch stays ISR-safe. */
+   if(fx_active[i])for(uint8_t j=0u;j<3u;j++){
+    const uint8_t type=blue_voice_fx[i].type[j],value=blue_voice_fx[i].value[j];
+    if(!type||!value)continue;
+    if(type==3u||type==4u||type==5u){
+     if(v->id<32u){
+      const uint32_t time=(type==3u?2205u:type==4u?623u:24u);
+      const uint32_t step=(time*(uint32_t)(20u+value))/100u;
+      const uint32_t lag=(step*v->phase_step)>>16u;
+      int32_t echo=blue_fx_tap(v,d->oneshots,idx,pcm_count,
+       (v->id>=16u&&v->id<32u)?(voice_frames[i]>>16u):0u,lag,rom);
+      if(type==4u){
+       uint32_t lag2=(lag*3u)/2u;
+       echo=(echo+blue_fx_tap(v,d->oneshots,idx,pcm_count,
+        (v->id>=16u&&v->id<32u)?(voice_frames[i]>>16u):0u,lag2,rom))/2;
+      }
+      wave+=(echo*(int32_t)value)/(type==3u?165: type==4u?245:320);
+     }else if(v->id>=64u){
+      /* MONOLITH has no PCM history; amplitude/tonal echo approximation. */
+      uint8_t phase=blue_fx_triangle(v->age,(uint32_t)(150u+value*21u));
+      wave+=(wave*(int32_t)(phase*value))/(type==4u?90000:145000);
+     }
+    }
+   }
+#endif
    /* Real 3-band sample EQ (low/mid/high); all voice state is independent. */
    v->noise_lp+= (wave-v->noise_lp)>>5u; /* approx 220 Hz */
    v->noise_lp2+=(wave-v->noise_lp2)>>2u;/* approx 2 kHz */
    int32_t low=v->noise_lp,mid=v->noise_lp2-v->noise_lp,hi=wave-v->noise_lp2;
    int32_t level=(int32_t)(((low*drum_eq_coeff[i][0])+(mid*drum_eq_coeff[i][1])+(hi*drum_eq_coeff[i][2]))>>8u);
    if(v->age<16u)level=level*(int32_t)(v->age+1u)/16;
+#if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
+   if(v->reverse && v->id<32u){
+    /* A reversed one-shot ends on its original attack. Apply a bounded
+     * 32-frame exit ramp to prevent an abrupt full-scale PCM discontinuity. */
+    uint32_t remaining=pcm_count-idx;
+    uint32_t gate_remaining=v->length-v->age;
+    if(gate_remaining<remaining)remaining=gate_remaining;
+    if(remaining<32u)level=(int32_t)(((int64_t)level*remaining)/32u);
+   }
+#endif
+#if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
+   if(fx_active[i])for(uint8_t j=0u;j<3u;j++){
+    const uint8_t type=blue_voice_fx[i].type[j],value=blue_voice_fx[i].value[j];
+    if(!type)continue;
+    if(type==1u){
+     /* FILTER: continuously blend the independent per-voice low-pass. */
+     level=(level*(int32_t)(100u-value)+v->noise_lp2*(int32_t)value)/100;
+    }else if(type==2u){
+     int32_t hot=level*(int32_t)(100u+value*2u)/100;
+     if(hot>18000)hot=18000+(hot-18000)/4;
+     if(hot< -18000)hot=-18000+(hot+18000)/4;
+     level=hot>28000?28000:hot< -28000?-28000:hot;
+    }else if(type==9u){
+     const uint32_t rate=900u+(uint32_t)(100u-value)*30u;
+     uint32_t modulation=blue_fx_triangle(v->age,rate);
+     level=(int32_t)((level*(int32_t)(255u-value*2u/3u+(modulation*value*2u)/(3u*255u)))/255);
+    }
+   }
+#endif
    if(voice_attack[i] && v->age<voice_attack[i]){uint32_t a=v->age*32768u/voice_attack[i];level=(int32_t)((level*(int32_t)a)>>15u);}
    /* V0.5: bounded optional per-pad drive. Neutral=0 follows bit-for-bit
     * identical PCM math. Fixed-point, no buffers or audio-callback malloc.
@@ -503,7 +685,29 @@ void track_drum_render(struct track_drum_engine *d,const struct track_mixer *mix
    mono+=(level*7)/12; /* V0.46: +4.86 dB native drum gain, independent of mixer fader.
                        * 6-voice mix still keeps downstream master headroom. */
 #endif
-   v->phase+=v->phase_step;v->age++;
+#if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
+   uint32_t phase_step=v->phase_step;
+   if(fx_active[i])for(uint8_t j=0u;j<3u;j++){
+    const uint8_t type=blue_voice_fx[i].type[j],value=blue_voice_fx[i].value[j];
+    if(!value)continue;
+    if(type==6u || type==5u){
+     const uint32_t cycle=(uint32_t)(type==5u?850u:1400u)+(100u-value)*25u;
+     int32_t triangle=(int32_t)blue_fx_triangle(v->age,cycle)-128;
+     int32_t mod=(int32_t)((phase_step>>9u)*value*triangle/12800);
+     if(mod<0 && (uint32_t)(-mod)>=phase_step)phase_step=1u;
+     else phase_step=(uint32_t)((int32_t)phase_step+mod);
+    }else if(type==7u){
+     /* Arpeggiator: three tones across the step; no note retrigger. */
+     const uint32_t period=(uint32_t)(3000u+(100u-value)*80u);
+     uint8_t part=(uint8_t)((v->age/period)%3u);
+     phase_step=(uint32_t)((uint64_t)phase_step*(part==0u?256u:part==1u?323u:384u)>>8u);
+    }
+   }
+   v->phase+=phase_step;
+#else
+   v->phase+=v->phase_step;
+#endif
+   v->age++;
    /* Error <1/4096 of full-scale vs. old 64-bit envelope multiply. */
    uint32_t loss=((v->env_q24>>12u)*v->env_loss_q16+8u)>>4u;
    if(!loss&&v->env_q24)loss=1u;

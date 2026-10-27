@@ -1,1 +1,1 @@
-BEETLE BLUE V0.95 · Pre-RC experimental. REV native step effect implemented for BEETLE PCM and reverse-style MONOLITH, but Storage V2 streamed sample REV unsupported. Real FM1 DMA, OTA and audio hardware validation outstanding. See validation/V0.95-RESULTS.md.
+BEETLE BLUE V0.97 EXPERIMENTAL — built and software-tested, not physically FM1-validated. See validation/V0.97-RESULTS.md and docs/V1.0-RC-CHECKLIST.md.

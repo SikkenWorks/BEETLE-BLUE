@@ -1314,6 +1314,28 @@ static void track_audio_fire(struct etch_native_audio *audio,uint8_t lane_mask){
     const struct track_note2_fx *f2=&track_state.active.note2_fx[position];
     uint8_t fx=track_drum_note3_enabled?0u:(second_hit?f2->effect:dr->effect);
     uint8_t value=second_hit?f2->value:dr->value;
+#if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
+    /* NOTE1 and NOTE2 on CH6 must honour the same local sample window
+     * as CH1..CH5. Keep streamed Storage V2 trim separate and RAM-only. */
+    if(hit->component>=TRACK_DRUM_COUNT && hit->component<TRACK_DRUM_NOTE_COUNT){
+     uint8_t si=(uint8_t)(hit->component-TRACK_DRUM_COUNT);
+     if(hit->id>=16u&&hit->id<32u)
+      (void)track_drum_trim_local_voice(&track_drum,hit,blue_trim_start[si],blue_trim_end[si]);
+#if defined(BEETLE_NATIVE_V2) && BEETLE_NATIVE_V2
+     else if(hit->id>=32u&&hit->id<64u)
+      beetle_bd4_live_set_trim(v,blue_trim_start[si],blue_trim_end[si],hit->sequence);
+#endif
+    }
+#endif
+#if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
+    track_drum_step_fx(&track_drum,hit,0u,fx,value,track_state.transport.bpm);
+    for(uint8_t slot=0u;slot<2u;slot++){
+     const struct track_extra_fx *extra=track_drum_note3_enabled?0:
+      track_audio_extra(TRACK_DRUM_CHANNEL,position,second_hit,slot);
+     if(extra)track_drum_step_fx(&track_drum,hit,(uint8_t)(slot+1u),
+       track_extra_effect(extra),extra->value,track_state.transport.bpm);
+    }
+#else
     if(fx==TRACK_FX_DRUM_PITCH){
       int32_t pitch=(int32_t)hit->pitch_semitones+(int32_t)value-12;
       if(pitch< -36)pitch=-36;if(pitch>36)pitch=36;
@@ -1339,6 +1361,7 @@ static void track_audio_fire(struct etch_native_audio *audio,uint8_t lane_mask){
      else if(track_extra_effect(extra)==TRACK_FX_REVERSE)track_drum_reverse_voice(hit);
 #endif
     }
+#endif
     hit->gain_q8=(uint16_t)((uint32_t)hit->gain_q8*vel/94u);
 #if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
     /* CH6 fader applied to its newly created voices (rather than
@@ -1373,6 +1396,17 @@ static void track_audio_fire(struct etch_native_audio *audio,uint8_t lane_mask){
     struct track_drum_voice *hit=&track_drum.voices[v3];
     if(!hit->active||(int32_t)(hit->sequence-previous)<=0)continue;
     track_drum_note3_serial=hit->sequence;
+#if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
+    if(hit->component>=TRACK_DRUM_COUNT && hit->component<TRACK_DRUM_NOTE_COUNT){
+     uint8_t si=(uint8_t)(hit->component-TRACK_DRUM_COUNT);
+     if(hit->id>=16u&&hit->id<32u)
+      (void)track_drum_trim_local_voice(&track_drum,hit,blue_trim_start[si],blue_trim_end[si]);
+#if defined(BEETLE_NATIVE_V2) && BEETLE_NATIVE_V2
+     else if(hit->id>=32u&&hit->id<64u)
+      beetle_bd4_live_set_trim(v3,blue_trim_start[si],blue_trim_end[si],hit->sequence);
+#endif
+    }
+#endif
     hit->gain_q8=(uint16_t)((uint32_t)hit->gain_q8*vel3/94u);
 #if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
     hit->gain_q8=(uint16_t)(((uint32_t)hit->gain_q8*
@@ -1442,9 +1476,10 @@ static void track_audio_fire(struct etch_native_audio *audio,uint8_t lane_mask){
     track_drum.user[si].release=blue_adsr[si][3];
     voice->start_percent=blue_trim_start[si];voice->end_percent=blue_trim_end[si];
     if(voice->id<32u){
-     uint32_t frames=voice->length;
-     voice->phase=(uint32_t)(((uint64_t)frames*voice->start_percent/100u)*voice->phase_step);
-     voice->length=(uint32_t)(((uint64_t)frames*voice->end_percent/100u));
+     /* Apply START and END to source-frame bounds, not envelope length.
+      * This also guarantees REV plays exactly the same cropped section. */
+     (void)track_drum_trim_local_voice(&track_drum,voice,
+       (uint8_t)voice->start_percent,(uint8_t)voice->end_percent);
     }else{
 #if defined(BEETLE_NATIVE_V2) && BEETLE_NATIVE_V2
      beetle_bd4_live_set_trim(v,(uint8_t)voice->start_percent,(uint8_t)voice->end_percent,voice->sequence);
@@ -1453,17 +1488,11 @@ static void track_audio_fire(struct etch_native_audio *audio,uint8_t lane_mask){
    }
    uint32_t gain=(uint32_t)voice->gain_q8*vel;
    voice->gain_q8=(uint16_t)(gain/94u);
-   if(s->effect==TRACK_FX_VOLUME)voice->gain_q8=(uint16_t)((uint32_t)voice->gain_q8*s->value/100u);
-   if(s->effect==TRACK_FX_REVERSE)track_drum_reverse_voice(voice);
-   if(s->effect==TRACK_FX_DRUM_PITCH){
-    int32_t pitch=(int32_t)voice->pitch_semitones+(int32_t)s->value-12;
-    if(pitch<-36)pitch=-36;if(pitch>36)pitch=36;
-    voice->pitch_semitones=(int8_t)pitch;track_drum_retune_voice(&track_drum,voice);
-   }
+   track_drum_step_fx(&track_drum,voice,0u,s->effect,s->value,track_state.transport.bpm);
    for(uint8_t extra_slot=0u;extra_slot<2u;extra_slot++){
-    const struct track_extra_fx *rev_extra=track_audio_extra(c,position,0u,extra_slot);
-    if(rev_extra && track_extra_effect(rev_extra)==TRACK_FX_REVERSE)
-     track_drum_reverse_voice(voice);
+    const struct track_extra_fx *extra=track_audio_extra(c,position,0u,extra_slot);
+    if(extra)track_drum_step_fx(&track_drum,voice,(uint8_t)(extra_slot+1u),
+     track_extra_effect(extra),extra->value,track_state.transport.bpm);
    }
    uint8_t gate=track_step_gate(s);
    if(gate){uint32_t cap=period*gate/16u;
@@ -2754,7 +2783,9 @@ static void track_fm1_paint(void){
    const char *nm=track_web_stepfx[effect<TRACK_FX_COUNT?effect:0u];
    uint8_t at=0u;item[j][at++]='F';item[j][at++]='X';item[j][at++]=(char)('1'+j);item[j][at++]=' ';
    for(uint8_t k=0u;nm[k]&&at<24u;k++)item[j][at++]=nm[k];
-   item[j][at++]=' ';track_fmt_int(nv,value);
+   item[j][at++]=' ';
+   if(effect==TRACK_FX_REVERSE){nv[0]='O';nv[1]='N';nv[2]=0;}
+   else track_fmt_int(nv,value);
    for(uint8_t k=0u;nv[k]&&at<35u;k++)item[j][at++]=nv[k];item[j][at]=0;
    items[j]=item[j];
   }
@@ -2910,7 +2941,7 @@ static void track_fm1_paint(void){
   track_pix_center("K1 CHOOSE   SEL OPEN",120u,209u,TRACK_PINK);
   track_pix_center(
 #if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
- "BEETLE BLUE V0.95",
+ "BEETLE BLUE V0.97",
 #else
  "BEETLE V1.7.14",
 #endif
@@ -4625,8 +4656,13 @@ static void track_fm1_poll(void){
      if(track_state.transport.edit_channel==TRACK_DRUM_CHANNEL)
       track_fx_drum_lane=(uint8_t)(track_state.transport.edit_column==1u);
     }
-    if(track_page==3u){track_page=4u;track_punch_page=0u;}
-    else if(track_page==4u){if(track_punch_page)track_page=3u;else track_punch_page=1u;}
+    if(track_page==0u && track_state.transport.edit_column==3u){
+     /* FX-cell focus: short release edits THAT step without Punch page. */
+     track_page=3u;track_fx_slot=0u;track_punch_page=0u;
+    }else if(track_page==3u){
+     /* Repeated FX does not throw away the parameter edit context. */
+     track_page=3u;
+    }else if(track_page==4u){if(track_punch_page)track_page=3u;else track_punch_page=1u;}
     else{track_page=3u;track_punch_page=0u;}
    }
   if(pressed&(1u<<6) && track_page==42u){track_page=16u;changed=1u;}
@@ -5196,7 +5232,7 @@ static void track_fm1_poll(void){
        int rc=track_extra_add(&track_song,track_state.pattern_slot,key,(uint8_t)(track_fx_slot-1u),next,oldval);
        if(rc==-1)track_fx_full_until=etch_ms+1800u;
       } /* An empty FX1 is not a full storage pool. */
-     }else if(k3 && (track_fx_slot==0u || ex)){
+     }else if(k3 && oldfx!=TRACK_FX_REVERSE && oldfx!=0u && (track_fx_slot==0u || ex)){
       int32_t v=(int32_t)oldval+k3;
       if(v<0)v=0;if(v>(oldfx==TRACK_FX_DRUM_PITCH?24:100))v=oldfx==TRACK_FX_DRUM_PITCH?24:100;
       if(ex)ex->value=(uint8_t)v;

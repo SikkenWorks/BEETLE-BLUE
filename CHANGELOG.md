@@ -1,5 +1,27 @@
 # BEETLE BLUE CHANGELOG
 
+## V0.97 — Drum step-FX engine, FX cursor editing and realtime optimization (EXPERIMENTAL)
+
+- Audited the six-lane drum audio callbacks: V0.96 only applied step VOLUME, PITCH and REV to many BLUE drum voices, leaving FILTER, DRIVE, DELAY, REVERB, CHORUS, VIB, ARP, CUT and TREMOLO absent from the drum DSP path.
+- Introduced a fixed 3-slot transient per-voice FX state. FX1, FX2 and FX3 are dispatched in slot order, never allocated or saved during the audio interrupt. No V30 project-format change, no FX ID renumbering.
+- Added native drum effect processing: FILTER as low-pass blend; DRIVE bounded saturation; PCM ROM short-tap DELAY, REVERB and CHORUS; oscillator/pitch LFO VIB and CHORUS; 3-tone ARP; gate-based CUT; amplitude TREMOLO; plus existing VOLUME, PITCH and REV. MONOLITH's procedural oscillator now responds to its own ARP/VIB/CHORUS modulation (separate from PCM cursor rate).
+- Avoids heavy long-delay buffers or flash reads in the audio callback. Effects use bounded arithmetic, the existing PCM ROM data, a small 36-byte transient state and power-of-two LFO timing. The dry/no-FX path bypasses extra processing.
+- Short FX release on a focused FX cell opens PER STEP FX for that selected step and lane. Repeated short FX while editing preserves editor focus; long FX still controls Punch-In. REV displays ON rather than a misleading numeric parameter.
+- Host tests: 12 effects alter BEETLE and MONOLITH audio relative to dry; 3-FX combinations differ from their component effects; 2,500 overlapping retriggers; FX 12 storage codec and V30 compatibility retained. Application build and container tests in validation/V0.97-RESULTS.md.
+- **Current limitations:** short ROM taps and MONOLITH tonal approximations are not equivalent to long buffered echo/convolution. Streaming Storage V2 samples have no backwards/PCM-history read for REV/DELAY/REVERB/CHORUS. Hardware FM1 DMA deadlines, real output peaks, and OTA recovery remain unverified, so V0.97 is **NOT** a V1.0 Release Candidate.
+
+## V0.96 — Project-sample REV trim correction and CH6 consistency (EXPERIMENTAL)
+
+- Corrected project-local µ-law sample START/END in the native drum renderer. Previously the output age was treated as an absolute source endpoint and REV could read the wrong interval. Both directions now address the same source-frame window.
+- Applied the local sample window to all three CH6 hits (NOTE1, NOTE2 and NOTE3) as well as the other five drum lanes. The existing Storage V2 streaming trim request remains separate and forward-only.
+- Added a bounded 32-frame release ramp to reversed PCM hits, limiting clicks where reversed audio ends on the original transient. Mono procedural REV continues to be reverse-style synthesis, not a time-reversed waveform.
+- Used existing per-block voice metadata to pack local window start/span without enlarging the critical FM1 RAM pool or reducing DMA/USB buffers. Never allocates in the audio interrupt.
+- Native JieLi build and readonly build PASS. Host tests: 14 BEETLE/16 MONOLITH REV variants, 3,000 repeated reverse triggers, local sample cropping and a one-frame sample, V30 REV step codec.
+- Preserved existing 48 patterns, 12 project slots, 12 global User Kits, BDR1 V30 format, ROM engines, native mixers and protected update components.
+- WebInstaller updated with SHA-pinned V0.96 firmware; Manager regenerated from the exact separate tools. Simulator remains an approximation and does not yet fully reproduce native per-step REV/trim.
+- **Unverified:** physical FM1 DMA deadlines, real analogue peaks, USB six-stem timing, persistent NOR wear, OTA write/recovery. Not an RC-certified firmware.
+
+
 ## V0.95 — Reverse step FX implementation and 1.0 RC preparation (EXPERIMENTAL)
 
 - Audited native step-FX definitions: V0.94 had no `REV` step effect; reverse key detection and Punch-In reverse were unrelated.

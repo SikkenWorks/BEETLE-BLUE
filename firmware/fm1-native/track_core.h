@@ -12,7 +12,7 @@
 #define TRACK_PROJECTS 12u
 #define TRACK_STEPS 16u
 #define TRACK_FX_COUNT 13u
-/* V0.95: REV is a dedicated per-hit step FX (0..12 fits 4-bit FX field). */
+/* V0.96: REV is a dedicated per-hit step FX (0..12 fits 4-bit FX field). */
 #define TRACK_FX_REVERSE 12u
 #define TRACK_EXTRA_FX_CAP 48u /* project-wide sparse FX2/FX3 capacity */
 #define TRACK_INSTRUMENT_SLOTS 8u
