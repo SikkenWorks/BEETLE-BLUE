@@ -1,0 +1,92 @@
+{
+  "name": "MONOLITH Default Sample Kit",
+  "source": "16 WAV files supplied by the user; keep provenance and licensing with the user",
+  "status": "Assets bundled; not preflashed into FM1 internal sample bank",
+  "sampleSlots": [
+    {
+      "slot": 1,
+      "file": "kick.wav",
+      "drumComponent": 0,
+      "componentName": "KIK"
+    },
+    {
+      "slot": 2,
+      "file": "snare_1.wav",
+      "drumComponent": 1,
+      "componentName": "SNR"
+    },
+    {
+      "slot": 3,
+      "file": "hihat_1.wav",
+      "drumComponent": 2,
+      "componentName": "HHC"
+    },
+    {
+      "slot": 4,
+      "file": "open_hihat.wav",
+      "drumComponent": 3,
+      "componentName": "HHO"
+    },
+    {
+      "slot": 5,
+      "file": "tom_1.wav",
+      "drumComponent": 4,
+      "componentName": "TM1"
+    },
+    {
+      "slot": 6,
+      "file": "tom_2.wav",
+      "drumComponent": 5,
+      "componentName": "TM2"
+    },
+    {
+      "slot": 7,
+      "file": "tom_3.wav",
+      "drumComponent": 6,
+      "componentName": "TM3"
+    },
+    {
+      "slot": 8,
+      "file": "crash.wav",
+      "drumComponent": 7,
+      "componentName": "CRS"
+    },
+    {
+      "slot": 9,
+      "file": "ride.wav",
+      "drumComponent": 8,
+      "componentName": "RDE"
+    },
+    {
+      "slot": 10,
+      "file": "clap.wav",
+      "drumComponent": 9,
+      "componentName": "CLP"
+    },
+    {
+      "slot": 11,
+      "file": "perc_1.wav",
+      "drumComponent": 10,
+      "componentName": "PC1"
+    },
+    {
+      "slot": 12,
+      "file": "perc_2.wav",
+      "drumComponent": 11,
+      "componentName": "PC2"
+    },
+    {
+      "slot": 13,
+      "file": "perc_3.wav",
+      "drumComponent": 12,
+      "componentName": "PC3"
+    }
+  ],
+  "additionalWavNotIn13NativeSlots": [
+    "rim.wav",
+    "snare_2.wav",
+    "hihat_2.wav"
+  ],
+  "note": "14th RIM component falls back to ROM; alt snare/hihat and supplied rim WAV can replace a slot or be used in future expanded banks.",
+  "import": "Upload the 13 WAVs in the indicated U01\u2013U13 global slots with BEETLE BLUE Project Manager; source 1 MONOLITH selects them where available."
+}

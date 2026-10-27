@@ -1,0 +1,18 @@
+{
+  "name": "BEETLE BLUE",
+  "version": "0.91",
+  "experimental": true,
+  "native_app_bytes": 521496,
+  "native_app_sha256": "010eb4816bad15b484e32e56e2a26407a328a1d61da6e1a423d4770984094f77",
+  "firmware_filename": "BEETLE-BLUE-V0.91-FM1-EXPERIMENTAL.fwsc",
+  "firmware_bytes": 610086,
+  "firmware_sha256": "b1695f45ae9f56b7a48321dae7d0a0d01679c5375d3a2ac14c65a5a34b690482",
+  "project_schema": "BDR1 V30",
+  "web_files": [
+    "BEETLE-BLUE-Manager.html",
+    "BEETLE-BLUE-Project-Manager.html",
+    "simulator.html",
+    "WebInstaller.html"
+  ],
+  "physical_hardware_verified": false
+}

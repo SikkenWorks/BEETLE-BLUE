@@ -1,0 +1,117 @@
+{
+  "target": "M-VAVE FM-1 / JieLi AC791N-WL82 / pi32v2",
+  "app_bytes": 457896,
+  "app_sha256": "74c29734684ea154c869ad81e082d27d5e938d772d28566cda7fec19bf579bb8",
+  "app_slot_bytes": 581564,
+  "headroom_bytes": 123668,
+  "expected_start": "0x2000120",
+  "entry_stub_ok": true,
+  "safe_ram": [
+    "0x1c00000",
+    "0x1c7f000"
+  ],
+  "symbol_count": 988,
+  "sections": [
+    {
+      "name": ".text",
+      "size": 456700,
+      "vma": 33554720,
+      "lma": 33554720,
+      "file_offset": 800,
+      "nobits": false
+    },
+    {
+      "name": ".ram_text",
+      "size": 1120,
+      "vma": 29360128,
+      "lma": 34011420,
+      "file_offset": 457728,
+      "nobits": false
+    },
+    {
+      "name": ".data",
+      "size": 76,
+      "vma": 29392896,
+      "lma": 34012540,
+      "file_offset": 459776,
+      "nobits": false
+    },
+    {
+      "name": ".bss",
+      "size": 96744,
+      "vma": 29392976,
+      "lma": 29392976,
+      "file_offset": 459856,
+      "nobits": true
+    },
+    {
+      "name": ".pool",
+      "size": 207744,
+      "vma": 29491200,
+      "lma": 29491200,
+      "file_offset": 1280,
+      "nobits": true
+    },
+    {
+      "name": ".usb_audio_ram",
+      "size": 4544,
+      "vma": 29384704,
+      "lma": 29384704,
+      "file_offset": 1024,
+      "nobits": true
+    },
+    {
+      "name": ".beetle_usb_stems_ram",
+      "size": 7564,
+      "vma": 29364224,
+      "lma": 29364224,
+      "file_offset": 1024,
+      "nobits": true
+    },
+    {
+      "name": ".beetle_song",
+      "size": 51904,
+      "vma": 29698944,
+      "lma": 29698944,
+      "file_offset": 1280,
+      "nobits": true
+    },
+    {
+      "name": ".beetle_mem_gap",
+      "size": 128,
+      "vma": 29750848,
+      "lma": 29750848,
+      "file_offset": 1280,
+      "nobits": true
+    },
+    {
+      "name": ".beetle_lcd_frame",
+      "size": 83136,
+      "vma": 29750976,
+      "lma": 29750976,
+      "file_offset": 1280,
+      "nobits": true
+    },
+    {
+      "name": ".noinit",
+      "size": 10544,
+      "vma": 29868032,
+      "lma": 29868032,
+      "file_offset": 512,
+      "nobits": true
+    },
+    {
+      "name": ".beetle_edit_scratch",
+      "size": 2576,
+      "vma": 29878576,
+      "lma": 29878576,
+      "file_offset": 512,
+      "nobits": true
+    }
+  ],
+  "valid": true,
+  "errors": [],
+  "notes": [
+    "_start=0x02000120"
+  ]
+}
