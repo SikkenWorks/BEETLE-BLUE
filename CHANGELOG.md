@@ -1,6 +1,28 @@
 # BEETLE BLUE CHANGELOG
 
+## V0.99 — Stereo overload protection and lightweight per-voice math (EXPERIMENTAL)
+
+- Fixed a mix-headroom weakness in the BLUE six-drum-lane output: individually soft-limited lanes could still sum to a hard-clipped stereo peak. The final stereo sample now uses a **symmetric bounded soft knee** above +/-24,000, capped at +/-31,500, with unchanged values throughout the linear region. This is a deterministic software safeguard, not an analogue SPL or hardware-clip certification.
+- Simplified the 73-value pitch lookup algebra to remove software-emulated 64-bit multiplication on every drum trigger / retune. Added an **exact equivalence test** to the old Q16 formula for every tuning value.
+- Replaced two additional 64-bit per-sample multiplications with 32-bit fixed-point equivalents where input ranges prove the products fit; retained wide arithmetic for actual PCM sample interpolation where it is required.
+- New host test runs **3,900 mixed BEETLE/MONOLITH triggers** across six lanes and **166,400 rendered audio frames**, with changing pan, simultaneous FX and a maximum stereo magnitude below 31,500; all V0.98 regression suites re-run successfully.
+- Preserved BDR1 **V30**, 48 patterns, 12 project slots, six lane kit selections, BBK1 saved kits, all existing FX identifiers and the protected OTA loader. No change to non-audio control semantics, NOR storage layout, DMA memory buffers or USB configuration.
+- Rebuilt actual JieLi image and matching WebInstaller; regenerated **17 native-C LCD captures at 1920x1920, 8x nearest-neighbor**. Manager embeds only Project Manager and WebInstaller; no WebSimulator.
+- **RC blockers remain:** physical FM1 DMA DEADLINE behavior, analogue output peak measurements, physical flash/recovery, streamed user-sample REV/delay, USB stems, and BBK1 kit-bank backup/restore. V0.99 is experimental, not verified V1.0 RC.
+
+## V0.98 — Drum trigger correctness and CPU cleanup (EXPERIMENTAL)
+
+- Fixed hi-hat choke across **both** built-in drum kits: BEETLE PCM HHC/HHO and MONOLITH ROM closed/open/alternate hats now share the correct release interaction. Previously MONOLITH's voices used IDs 66/67/79, which were not recognized when checking *existing* voices for a choke.
+- Fixed CH6 note-column assignment for MONOLITH: mapped procedural voice IDs 64–79 no longer masquerade as missing NOTE1 hits and inherit NOTE2 FX or STOP state. A small pure NOTE1/NOTE2 classifier uses the voice's actual source ID (MONOLITH) or logical component ID (BEETLE's randomized PCM variations).
+- Fixed the MONOLITH **PITCH** step effect: changes the actual `kit_phase` oscillator increment rather than merely altering an unrelated PCM cursor or note duration. Implemented with a bounded modular 32-bit multiplication rather than a 64-bit multiply inside the audio callback.
+- Reduced drum render work for inactive voices by skipping EQ, FX, ROM-pointer and trim preparation for unused polyphony slots.
+- Added host regression for both-kit choke, CH6 NOTE1/NOTE2 effect routing, 4,096 rapid retriggers and procedural PITCH frequency. Re-ran existing PCM, MONOLITH, FX1–FX3, REV, trim, V29→V30 migration and PCM-initialization tests.
+- Firmware remains BDR1 **V30**, with 48 patterns, 12 project slots, 6 drum lanes, 12 BBK1 User Kits and no WebSimulator. Project/Storage V2 layouts are unchanged. Updated two-tool WebInstaller/Manager and regenerated 17 native LCD renders using 8× nearest-neighbor scaling.
+- **Hardware limitations:** no physical FM1 DMA timing, output-peak measurement, USB audio, flash/recovery or long-run flash journal verification has been performed. This is experimental and must not be advertised as V1.0 RC ready.
+
 ## V0.97 — Drum step-FX engine, FX cursor editing and realtime optimization (EXPERIMENTAL)
+
+- Release packaging cleanup: removed the WebSimulator, its README button and all emulator UI/payloads from the All-in-One Manager. The Manager now contains only the Project Manager and WebInstaller. Updated the two-tool Manager build script. This is a web/documentation-only repack; the native V0.97 `.fwsc` is unchanged.
 
 - Audited the six-lane drum audio callbacks: V0.96 only applied step VOLUME, PITCH and REV to many BLUE drum voices, leaving FILTER, DRIVE, DELAY, REVERB, CHORUS, VIB, ARP, CUT and TREMOLO absent from the drum DSP path.
 - Introduced a fixed 3-slot transient per-voice FX state. FX1, FX2 and FX3 are dispatched in slot order, never allocated or saved during the audio interrupt. No V30 project-format change, no FX ID renumbering.

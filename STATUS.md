@@ -1,1 +1,1 @@
-BEETLE BLUE V0.97 EXPERIMENTAL — built and software-tested, not physically FM1-validated. See validation/V0.97-RESULTS.md and docs/V1.0-RC-CHECKLIST.md.
+BEETLE BLUE V0.99 EXPERIMENTAL — native JieLi build, readonly diagnostics, FX and high-density host audio regression pass. Physical FM1 DMA/audio/OTA and NOR behavior remain unverified. See validation/V0.99-RESULTS.md.

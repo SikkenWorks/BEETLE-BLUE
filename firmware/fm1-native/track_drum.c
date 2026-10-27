@@ -93,7 +93,17 @@ static uint8_t choose(struct track_drum_engine *d,uint8_t index){
  if(index==6u){uint8_t id=(rnd(&d->rng)&1u)?8u:6u;if(id==d->hh_last)id=id==6u?8u:6u;d->hh_last=id;return id;}
  return index;
 }
-static uint8_t hat(uint8_t id){return id==6u||id==8u||id==10u;}
+/* Identify ALL hat voices by their physical ID, including the MONOLITH
+ * procedural closed/open/alternate-hat ROM voices. Formerly only BEETLE PCM
+ * hats could choke one another and a MONOLITH open hat rang underneath a
+ * subsequent closed hat. The same choke family spans both embedded kits. */
+static uint8_t hat(uint8_t id){
+ return (uint8_t)(id==6u||id==8u||id==10u
+#if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
+ ||id==66u||id==67u||id==79u
+#endif
+ );
+}
 
 /* µ-law ROM at 22050 Hz, linearly interpolated at 44100 Hz. The original
  * attack/body/tail is rendered offline by tools/create_v044_kit.py. This
@@ -102,7 +112,10 @@ static uint8_t hat(uint8_t id){return id==6u||id==8u||id==10u;}
 static const uint32_t tune_q16[73]={8192u,8679u,9195u,9742u,10321u,10935u,11585u,12274u,13004u,13777u,14596u,15464u,16384u,17358u,18390u,19484u,20643u,21870u,23170u,24548u,26008u,27554u,29193u,30929u,32768u,34716u,36781u,38968u,41285u,43740u,46341u,49097u,52016u,55109u,58386u,61858u,65536u,69433u,73562u,77936u,82570u,87480u,92682u,98193u,104032u,110218u,116772u,123715u,131072u,138866u,147123u,155872u,165140u,174960u,185364u,196386u,208064u,220436u,233544u,247431u,262144u,277732u,294247u,311744u,330281u,349920u,370728u,392772u,416128u,440872u,467088u,494862u,524288u};
 static uint32_t rate_step(int8_t semi){
  if(semi<-36)semi=-36;if(semi>36)semi=36;
- return (uint32_t)(((uint64_t)32768u*tune_q16[(uint8_t)(semi+36)]+32768u)>>16u);
+ /* Exact algebraic simplification: ((32768*T + 32768)>>16) ==
+  * ((T + 1)>>1). Removes software-emulated 64-bit multiplication from
+  * every drum trigger and PITCH retune without changing a single bit. */
+ return (tune_q16[(uint8_t)(semi+36)]+1u)>>1u;
 }
 /* Internal physical drum IDs are deliberately unchanged for sequencer,
  * alternative snare/hats, and legacy test compatibility. The ROM bank holds
@@ -131,9 +144,15 @@ static int32_t blue_rom_wave(struct track_drum_voice *v,uint8_t pad,uint8_t slot
   * and rise with a fixed-point envelope. Never divide in the DMA callback.
   * This is explicitly reverse-style synthesis, not literal time-reversed PCM. */
  const uint32_t scale=v->kit_env>>16u;
- wave=(int32_t)(((int64_t)wave*scale)>>8u);
+ /* |wave|<=32768, scale<=256. This signed product fits in int32. */
+ wave=(wave*(int32_t)scale)>>8u;
  uint32_t sweep=v->kit_sweep;
- uint32_t inc=p->phase_inc+sweep;
+ /* MONOLITH's waveform uses kit_phase, not the PCM read cursor. Applying
+  * PITCH to phase_step alone previously changed only the note lifetime,
+  * not its actual audible oscillator frequency. Multiply Q8 halves here:
+  * unsigned 32-bit modular math is exactly appropriate for phase wrapping.
+  * This costs one 32-bit multiply and NO 64-bit arithmetic per sample. */
+ uint32_t inc=((p->phase_inc+sweep)>>8u)*(v->phase_step>>7u);
  /* MONOLITH has an independent oscillator phase. Route the step-FX tonal
   * modulation to THAT oscillator, never only to the PCM read cursor. */
  if(slot<TRACK_DRUM_POLY && (blue_voice_fx[slot].type[0] ||
@@ -205,7 +224,7 @@ int track_drum_trigger(struct track_drum_engine *d,uint8_t index){
 #endif
  if(user && !global && (!d->oneshots||!d->oneshots->length[index-BEETLE_ONESHOT_FIRST]))return 0;
  const uint8_t id=mono?index:global?(uint8_t)(32u+index-TRACK_DRUM_COUNT):user?(uint8_t)(16u+index-BEETLE_ONESHOT_FIRST):choose(d,physical[index]);
- if(hat(id)||(mono&&(index==66u||index==67u||index==79u)))for(uint8_t i=0;i<TRACK_DRUM_POLY;i++){
+ if(hat(id))for(uint8_t i=0;i<TRACK_DRUM_POLY;i++){
   struct track_drum_voice *old=&d->voices[i];
   if(old->active&&hat(old->id)&&(!old->release_frames||old->release_frames>48u))old->release_frames=48u;
  }
@@ -279,9 +298,20 @@ int track_drum_trigger_pair(struct track_drum_engine *d,uint8_t first,uint8_t se
  );
  if(!a&&!b)return 0;
  if(a&&b){
-  if(first==second&&first<TRACK_DRUM_COUNT&&hat(physical[first]))return track_drum_trigger(d,first);
+  /* A single physical hat retrigger per row. BEETLE and MONOLITH must
+   * obey identical closed-hat priority when their two columns conflict. */
+  if(first==second && (
+      (first<TRACK_DRUM_COUNT && hat(physical[first]))
+#if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
+      ||hat(first)
+#endif
+     ))return track_drum_trigger(d,first);
   if(first==2u&&second==3u)return track_drum_trigger(d,first);
   if(first==3u&&second==2u)return track_drum_trigger(d,second);
+#if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
+  if(first==66u&&second==67u)return track_drum_trigger(d,first);
+  if(first==67u&&second==66u)return track_drum_trigger(d,second);
+#endif
  }
  int n=0;if(a)n+=track_drum_trigger(d,first);if(b)n+=track_drum_trigger(d,second);return n;
 }
@@ -406,6 +436,19 @@ void track_drum_stop(struct track_drum_engine *d){
 #endif
 }
 static int16_t clamp16(int32_t x){return (int16_t)(x>32767?32767:x<-32768?-32768:x);}
+#if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
+/* Post-lane stereo saturation. Previously six individually safe channels
+ * could add up to a hard 32767 clamp, causing audible edges on dense
+ * patterns. Preserve all values in the linear region, apply a low-cost
+ * symmetric soft knee only beyond 24k and cap the output at +/-31500.
+ * No state, buffers, division, floating point, or allocations in the ISR. */
+static int16_t blue_stereo_soft_limit(int32_t x){
+ if(x>24000){x=24000+(x-24000)/8;if(x>31500)x=31500;}
+ else if(x< -24000){x=-24000+(x+24000)/8;if(x< -31500)x=-31500;}
+ return (int16_t)x;
+}
+#endif
+
 static int32_t get_pcm(uint8_t id,uint32_t sample,const struct beetle_oneshot_bank *bank,uint16_t start){
  if(id>=16u){
   const uint8_t s=(uint8_t)(id-16u);
@@ -479,6 +522,15 @@ void track_drum_render(struct track_drum_engine *d,const struct track_mixer *mix
  uint32_t *voice_frames=drum_chunk_frames,*voice_floor=drum_chunk_floor,*voice_attack=drum_chunk_attack;
  for(uint8_t i=0;i<TRACK_DRUM_POLY;i++){
   const struct track_drum_voice *v=&d->voices[i];
+  /* Do not resolve EQ, ROM offsets or FX metadata for idle voice slots.
+   * This matters on the FM1 when only one of six drum voices is sounding. */
+  if(!v->active){
+   voice_frames[i]=voice_floor[i]=voice_attack[i]=0u;
+#if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
+   fx_active[i]=0u;drum_chunk_rom[i]=0;
+#endif
+   continue;
+  }
   const struct track_drum_timbre *ctrl=
 #if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
   &blue_voice_timbre[(uint8_t)(v-d->voices)];
@@ -677,7 +729,10 @@ void track_drum_render(struct track_drum_engine *d,const struct track_mixer *mix
    /* Q15 envelope: after the 30k drive knee this product fits int32.
     * Avoid emulated 64-bit multiply on each active voice/sample. */
    level=(int32_t)((level*(int32_t)(v->env_q24>>9u))>>15u);
-   level=(int32_t)(((int64_t)level*v->gain_q8)>>8u);
+   /* After the optional drive knee, normal unboosted EQ is bounded by
+    * ROM PCM amplitudes; with documented gain<=100%, the product fits
+    * signed 32-bit. A 64-bit multiply in the inner loop is unnecessary. */
+   level=(int32_t)((level*(int32_t)v->gain_q8)>>8u);
    if(v->release_frames)level=level*v->release_frames/48;
 #if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
    channel_mono[v->source_lane<TRACK_CHANNELS?v->source_lane:TRACK_DRUM_CHANNEL]+=(level*149)>>8u;
@@ -731,7 +786,7 @@ void track_drum_render(struct track_drum_engine *d,const struct track_mixer *mix
    left+=(int32_t)((one*(int32_t)lane_pan_l[ch])>>8);
    right+=(int32_t)((one*(int32_t)lane_pan_r[ch])>>8);
   }
-  dst[f*2u]=clamp16(left);dst[f*2u+1u]=clamp16(right);
+  dst[f*2u]=blue_stereo_soft_limit(left);dst[f*2u+1u]=blue_stereo_soft_limit(right);
 #else
   mono=(mono*(int32_t)gain*(int32_t)d->step_gain)/10000;
   /* Soft knee only for exceptionally dense drum hits: prevent six-voice

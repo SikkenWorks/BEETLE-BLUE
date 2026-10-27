@@ -34,9 +34,11 @@
 #include "beetle_reverse_key.h"
 #include "beetle_led_ripple.h"
 #include "track_drum.h"
+#include "beetle_blue_pair_route.h"
 #if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
 #include "beetle_drum6_kits.h"
 #include "beetle_blue_kits.h"
+
 #endif
 #include "beetle_menu_note_fence.h"
 #include "beetle_project_delete_ui.h"
@@ -1286,11 +1288,12 @@ static void track_audio_fire(struct etch_native_audio *audio,uint8_t lane_mask){
    for(uint8_t i=0u;i<TRACK_DRUM_POLY;i++){
     const struct track_drum_voice *v=&track_drum.voices[i];
     if(v->active&&(int32_t)(v->sequence-serial)>0){
-     if(first<TRACK_DRUM_NOTE_COUNT && v->component==first &&
-        (!track_drum_note1_serial || v->sequence>track_drum_note1_serial))track_drum_note1_serial=v->sequence;
-     if(second<TRACK_DRUM_NOTE_COUNT && v->component==second &&
-        (!track_drum_note2_serial || v->sequence>track_drum_note2_serial) &&
-        !(first==second && track_drum_note1_serial==v->sequence))track_drum_note2_serial=v->sequence;
+     uint8_t is_note2=beetle_blue_pair_is_note2(first,second,
+       v->id,v->component,v->sequence,serial);
+     /* The primary and secondary STOP serials must also track embedded
+      * MONOLITH (voice IDs 64..79), not just BEETLE's 0..26 notes. */
+     if(is_note2){track_drum_note2_serial=v->sequence;}
+     else{track_drum_note1_serial=v->sequence;}
     }
    }
   }
@@ -1308,9 +1311,8 @@ static void track_audio_fire(struct etch_native_audio *audio,uint8_t lane_mask){
    if(hit->active && (int32_t)(hit->sequence-serial)>0){
     /* Pair trigger is first-then-second, except hat choke reduces it to one.
      * Identify the actual fired NOTE2 voice without touching a prior note tail. */
-    uint8_t second_hit=(uint8_t)(first>=TRACK_DRUM_NOTE_COUNT ||
-      (second<TRACK_DRUM_NOTE_COUNT && hit->sequence!=serial+1u) ||
-      (first==3u && second==2u));
+    uint8_t second_hit=beetle_blue_pair_is_note2(first,second,
+      hit->id,hit->component,hit->sequence,serial);
     const struct track_note2_fx *f2=&track_state.active.note2_fx[position];
     uint8_t fx=track_drum_note3_enabled?0u:(second_hit?f2->effect:dr->effect);
     uint8_t value=second_hit?f2->value:dr->value;
@@ -2941,7 +2943,7 @@ static void track_fm1_paint(void){
   track_pix_center("K1 CHOOSE   SEL OPEN",120u,209u,TRACK_PINK);
   track_pix_center(
 #if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
- "BEETLE BLUE V0.97",
+ "BEETLE BLUE V0.99",
 #else
  "BEETLE V1.7.14",
 #endif
