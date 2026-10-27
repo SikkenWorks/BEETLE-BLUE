@@ -1,0 +1,37 @@
+{
+  "name": "BEETLE BLUE",
+  "version": "0.92",
+  "status": "EXPERIMENTAL; physical FM1 not tested",
+  "native_app_bytes": 521464,
+  "native_app_sha256": "8ba9baa1d0af7f38984c6ea855712a7503ac70acacbe350d8e3af6d10cffa2b5",
+  "fwsc_bytes": 610086,
+  "fwsc_sha256": "3d7a84363c7b73e87d4524435046d2954f10532bd4c6baca1d397bff689ea779",
+  "project_codec": "BDR1 V30 retained",
+  "global_samples": 13,
+  "monolith_original_wavs": 16,
+  "mapped_monolith_sample_slots": 13,
+  "user_kit_slots": 12,
+  "patterns": 48,
+  "project_slots": 12,
+  "renderer": "actual track_fm1_grid() from native source; 240x240 RGB565 -> 8x nearest neighbor",
+  "native_png_count": 16,
+  "software_checks": [
+    "native JieLi app/link/audit",
+    "read-only native build",
+    "fwsc app round-trip and protected header/OTA loader",
+    "original V0.91 project migration regression",
+    "13-sample bank decoded/encoded with actual Project Manager JS",
+    "4 web pages JS syntax",
+    "embedded FWSC/WebInstaller hash",
+    "Manager embedded byte identity",
+    "native LCD tracker C function capture"
+  ],
+  "not_proven": [
+    "safe real-world FM1 flashing",
+    "real FM1 MONOLITH sample audio",
+    "DMA deadline double kick fixed",
+    "physical USB/SysEx sample upload",
+    "endurance or recovery safety",
+    "Chromium browser runtime test (restricted test environment)"
+  ]
+}

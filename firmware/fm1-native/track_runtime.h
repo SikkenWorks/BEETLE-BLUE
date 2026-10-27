@@ -1200,6 +1200,15 @@ static void track_audio_all_off(struct etch_native_audio *audio){
 }
 /* Follow the lane's SOURCE pattern in Song Mode. A composed Song row may
  * combine six patterns, so the bounded FX pool must never be merged into one. */
+/* V0.93: MONOLITH ships in application ROM. 0..13 are primary drum pads,
+ * pad U01/U02 preview alternate snares/hats from the same embedded bank.
+ * Other U slots remain the user's existing Storage V2 one-shots. */
+#if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
+static uint8_t blue_monolith_resolve(uint8_t note){
+ if(note<16u)return (uint8_t)(64u+note);
+ return note;
+}
+#endif
 static const struct track_extra_fx *track_audio_extra(uint8_t lane,uint8_t row,uint8_t note2,uint8_t slot){
  uint8_t pat=track_state.pattern_slot;
  if(track_song.enabled&&track_song.composite_active&&track_song.position<track_song.count){
@@ -1263,17 +1272,13 @@ static void track_audio_fire(struct etch_native_audio *audio,uint8_t lane_mask){
   uint8_t fix2=(uint8_t)(ch6source>=2u&&ch6source<BLUE_KIT_TOTAL && second<TRACK_DRUM_COUNT && second!=first);
   if(fix1){saved1=track_drum.components[first];blue_kit_sound(&blue_global_kits,ch6source,first,&saved1,&track_drum.components[first]);}
   if(fix2){saved2=track_drum.components[second];blue_kit_sound(&blue_global_kits,ch6source,second,&saved2,&track_drum.components[second]);}
-  if(ch6source==1u){
-#if defined(BEETLE_NATIVE_V2) && BEETLE_NATIVE_V2
-   if(first<13u && beetle_bd4_live_available(first))first=(uint8_t)(BEETLE_ONESHOT_FIRST+first);
-   if(second<13u && beetle_bd4_live_available(second))second=(uint8_t)(BEETLE_ONESHOT_FIRST+second);
-#endif
-  }
+  if(ch6source==1u){first=blue_monolith_resolve(first);second=blue_monolith_resolve(second);}
 #endif
   (void)track_drum_trigger_pair(&track_drum,first,second);
 #if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
+  /* Restore ORIGINAL component timbres, not translated MONOLITH U-slots. */
   if(fix1)track_drum.components[dr->note]=saved1;
-  if(fix2)track_drum.components[second]=saved2;
+  if(fix2)track_drum.components[track_note2_id(dr)]=saved2;
 #endif
   /* Pair-trigger may deliberately suppress duplicate/mutually exclusive hats.
    * In that case the second voice was not created and cannot be STOPped. */
@@ -1350,9 +1355,7 @@ static void track_audio_fire(struct etch_native_audio *audio,uint8_t lane_mask){
    struct track_drum_timbre saved3;
    uint8_t fix3=(uint8_t)(source3>=2u && source3<BLUE_KIT_TOTAL && third<TRACK_DRUM_COUNT);
    if(fix3){saved3=track_drum.components[third];blue_kit_sound(&blue_global_kits,source3,third,&saved3,&track_drum.components[third]);}
-#if defined(BEETLE_NATIVE_V2) && BEETLE_NATIVE_V2
-   if(source3==1u && third<13u && beetle_bd4_live_available(third))third=(uint8_t)(BEETLE_ONESHOT_FIRST+third);
-#endif
+   if(source3==1u)third=blue_monolith_resolve(third);
 #endif
    (void)track_drum_trigger(&track_drum,third);
 #if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
@@ -1405,8 +1408,7 @@ static void track_audio_fire(struct etch_native_audio *audio,uint8_t lane_mask){
    if(source>=2u && source<BLUE_KIT_TOTAL){
     blue_kit_sound(&blue_global_kits,source,s->note,&backup,&track_drum.components[s->note]);
    }else if(source==1u){
-    /* MONOLITH kit: requires uploaded global sample bank; preserve original
-     * ROM component if no mapped sample is available rather than mute it. */
+    /* MONOLITH is fully embedded; never depends on a Storage V2 slot. */
    }
   }
   if(s->note>=TRACK_DRUM_COUNT&&s->note<TRACK_DRUM_NOTE_COUNT){
@@ -1415,10 +1417,7 @@ static void track_audio_fire(struct etch_native_audio *audio,uint8_t lane_mask){
    track_drum.user[si].sustain=blue_adsr[si][2];track_drum.user[si].release=blue_adsr[si][3];
   }
   uint8_t trigger_note=s->note;
-#if defined(BEETLE_NATIVE_V2) && BEETLE_NATIVE_V2
-  if(source==1u && s->note<13u && beetle_bd4_live_available(s->note))
-   trigger_note=(uint8_t)(BEETLE_ONESHOT_FIRST+s->note);
-#endif
+  if(source==1u)trigger_note=blue_monolith_resolve(s->note);
   int triggered=track_drum_trigger(&track_drum,trigger_note);
   if(s->note<TRACK_DRUM_COUNT)track_drum.components[s->note]=backup;
   if(!triggered)continue;
@@ -2119,7 +2118,7 @@ static void blue_drum_component_mixer_screen(void){
   * USER KIT values come directly from BBK1, never from a copy of the lane mix. */
  track_pix_text("KIT",6u,50u,TRACK_PINK);
  if(blue_drum_mix_kit==0u)track_pix_text("DEFAULT / ROM",45u,50u,TRACK_BRIGHT);
- else if(blue_drum_mix_kit==1u)track_pix_text("MONOLITH / SAMPLES",45u,50u,TRACK_BRIGHT);
+ else if(blue_drum_mix_kit==1u)track_pix_text("MONOLITH / ROM",45u,50u,TRACK_BRIGHT);
  else{
   char kit[16]="USER KIT 01";
   uint8_t n=(uint8_t)(blue_drum_mix_kit-1u);
@@ -2129,13 +2128,13 @@ static void blue_drum_component_mixer_screen(void){
  track_pix_text("PAD",5u,66u,TRACK_PINK);
  track_pix_text("GAIN",106u,66u,TRACK_PINK);track_pix_text("PIT",145u,66u,TRACK_PINK);
  track_pix_text("DRV",180u,66u,TRACK_PINK);track_pix_text("CH",214u,66u,TRACK_PINK);
- uint8_t limit=blue_drum_mix_kit==0u?TRACK_DRUM_NOTE_COUNT:TRACK_DRUM_COUNT;
+ uint8_t limit=blue_drum_mix_kit==0u?TRACK_DRUM_NOTE_COUNT:blue_drum_mix_kit==1u?16u:TRACK_DRUM_COUNT;
  uint8_t first=blue_drum_mix_component>2u?(uint8_t)(blue_drum_mix_component-2u):0u;
  if(first>limit-7u)first=(uint8_t)(limit-7u);
  for(uint8_t j=0u;j<7u;j++){
   uint8_t id=(uint8_t)(first+j);uint16_t y=(uint16_t)(83u+j*17u);
-  const struct track_drum_timbre *v=(blue_drum_mix_kit==1u&&id<BEETLE_ONESHOT_NOTES)?
-    &track_drum.user[id]:(id<TRACK_DRUM_COUNT?&track_drum.components[id]:&track_drum.user[id-TRACK_DRUM_COUNT]);
+  uint8_t base=(uint8_t)(blue_drum_mix_kit==1u&&id>=14u?(id==14u?1u:2u):id);
+  const struct track_drum_timbre *v=base<TRACK_DRUM_COUNT?&track_drum.components[base]:&track_drum.user[base-TRACK_DRUM_COUNT];
   int32_t pitch=v->pitch;uint8_t gain=v->gain,drive=v->drive,choke=v->choke_group;
   if(blue_drum_mix_kit>=2u&&id<TRACK_DRUM_COUNT){
    const struct blue_kit_tone *tone=&blue_global_kits.user[blue_drum_mix_kit-2u].drums[id];
@@ -2144,12 +2143,12 @@ static void blue_drum_component_mixer_screen(void){
    }
   }
   if(id==blue_drum_mix_component)lcd_fill(3u,y-3u,234u,15u,0x0814u);
-  char name[21];const char *nm=track_drum_name(id);uint8_t k=0u;
+  char name[21];const char *nm=(blue_drum_mix_kit==1u&&id==14u)?"SNR2":(blue_drum_mix_kit==1u&&id==15u)?"HHT2":track_drum_name(id);uint8_t k=0u;
   while(nm[k]&&k<14u){name[k]=nm[k];k++;}name[k]=0;
   track_pix_text(name,4u,y,TRACK_WHITE);
   char value[12];track_fmt_int(value,gain);
   track_pix_text(value,107u,y,blue_drum_mix_field==0u&&id==blue_drum_mix_component?TRACK_PINK:TRACK_WHITE);
-  if(id<TRACK_DRUM_COUNT&&blue_drum_mix_kit!=1u){
+  if(id<TRACK_DRUM_COUNT||blue_drum_mix_kit==1u){
    value[0]=pitch<0?'-':'+';track_fmt_int(value+1u,(uint32_t)(pitch<0?-pitch:pitch));
    track_pix_text(value,146u,y,blue_drum_mix_field==1u&&id==blue_drum_mix_component?TRACK_PINK:TRACK_WHITE);
   }else track_pix_text("--",146u,y,TRACK_WHITE);
@@ -2157,7 +2156,9 @@ static void blue_drum_component_mixer_screen(void){
   track_fmt_int(value,choke);track_pix_text(value,220u,y,blue_drum_mix_field==3u&&id==blue_drum_mix_component?TRACK_PINK:TRACK_WHITE);
  }
  track_pix_text("SELECT KIT / K1 PAD / K2 COL",4u,206u,TRACK_PINK);
- if(blue_drum_mix_kit>=2u){
+ if(blue_drum_mix_kit==1u){
+  track_pix_text("16 SAMPLES IN FIRMWARE",4u,221u,TRACK_BRIGHT);
+ }else if(blue_drum_mix_kit>=2u){
   track_pix_text(blue_drum_mix_save_status==1u?"GLOBAL KIT SAVED":
      blue_drum_mix_save_status==2u?"SAVE FAILED / CHECK STORAGE":
      "K3 SET / SEL SAVE GLOBAL",4u,221u,
@@ -2889,7 +2890,7 @@ static void track_fm1_paint(void){
   track_pix_center("K1 CHOOSE   SEL OPEN",120u,209u,TRACK_PINK);
   track_pix_center(
 #if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
- "BEETLE BLUE V0.91",
+ "BEETLE BLUE V0.93",
 #else
  "BEETLE V1.7.14",
 #endif
@@ -5401,16 +5402,15 @@ static void track_fm1_poll(void){
      sel=0;
     }
     if(k1){int32_t id=(int32_t)blue_drum_mix_component+k1;
-     uint8_t total=blue_drum_mix_kit==0u?TRACK_DRUM_NOTE_COUNT:TRACK_DRUM_COUNT;
+     uint8_t total=blue_drum_mix_kit==0u?TRACK_DRUM_NOTE_COUNT:blue_drum_mix_kit==1u?16u:TRACK_DRUM_COUNT;
      if(id<0)id=0;if(id>=total)id=total-1u;
      blue_drum_mix_component=(uint8_t)id;changed=1u;}
     if(k2){int32_t f=(int32_t)blue_drum_mix_field+k2;
      if(f<0)f=0;if(f>3)f=3;blue_drum_mix_field=(uint8_t)f;changed=1u;}
     if(k3 && !track_state.transport.playing){
      uint8_t id=blue_drum_mix_component;
-     struct track_drum_timbre *p=(blue_drum_mix_kit==1u&&id<BEETLE_ONESHOT_NOTES)?
-       &track_drum.user[id]:(id<TRACK_DRUM_COUNT?&track_drum.components[id]:
-       &track_drum.user[id-TRACK_DRUM_COUNT]);
+     uint8_t base=(uint8_t)(blue_drum_mix_kit==1u&&id>=14u?(id==14u?1u:2u):id);
+     struct track_drum_timbre *p=base<TRACK_DRUM_COUNT?&track_drum.components[base]:&track_drum.user[base-TRACK_DRUM_COUNT];
      /* Editing USER KIT modifies a separately stored global timbre bank.
       * Changes are committed ONLY by explicit SEL with transport stopped. */
      if(blue_drum_mix_kit>=2u){

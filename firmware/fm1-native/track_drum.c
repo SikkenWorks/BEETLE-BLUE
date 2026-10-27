@@ -9,6 +9,9 @@
 #include "track_core.h"
 #include "beetle_stereo_pan.h"
 #include "beetle_drum_rom.h"
+#if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
+#include "beetle_blue_monolith.h"
+#endif
 #if defined(BEETLE_NATIVE_V2) && BEETLE_NATIVE_V2
 #include "beetle_bd4_live.h"
 #endif
@@ -100,7 +103,52 @@ static uint32_t rate_step(int8_t semi){
  * alternative snare/hats, and legacy test compatibility. The ROM bank holds
  * the 14 user-visible instruments, so map 16 physical IDs to 14 ROM entries. */
 static const uint8_t rom_index[16]={0u,1u,14u,9u,13u,10u,2u,11u,15u,12u,3u,4u,5u,7u,6u,8u};
+/* READ-ONLY MONOLITH kit: IMA ADPCM nibble decoder. State is per voice,
+ * decoding advances only when phase enters next sample; no flash reads in
+ * the background sample streamer and no runtime allocations. */
+#if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
+static const int16_t blue_ima_steps[89]={
+7,8,9,10,11,12,13,14,16,17,19,21,23,25,28,31,34,37,41,45,50,55,
+60,66,73,80,88,97,107,118,130,143,157,173,190,209,230,253,279,307,
+337,371,408,449,494,544,598,658,724,796,876,963,1060,1166,1282,
+1411,1552,1707,1878,2066,2272,2499,2749,3024,3327,3660,4026,
+4428,4871,5358,5894,6484,7132,7845,8630,9493,10442,11487,12635,
+13899,15289,16818,18500,20350,22385,24623,27086,29794,32767};
+static const int8_t blue_ima_index[8]={-1,-1,-1,-1,2,4,6,8};
+static int16_t blue_ima_next(struct track_drum_voice *v, uint8_t slot){
+ const uint32_t base=blue_monolith_offset[slot];
+ const uint32_t size=blue_monolith_offset[slot+1u]-base;
+ const uint32_t sample=v->mono_decoded++;
+ if((sample>>1u)>=size)return 0;
+ uint8_t byte=blue_monolith_adpcm[base+(sample>>1u)];
+ uint8_t n=(sample&1u)?(uint8_t)(byte>>4u):(uint8_t)(byte&15u);
+ int32_t step=blue_ima_steps[v->mono_index];
+ int32_t d=step>>3u;
+ if(n&4u)d+=step;if(n&2u)d+=step>>1u;if(n&1u)d+=step>>2u;
+ int32_t p=(int32_t)v->mono_predictor + ((n&8u)?-d:d);
+ if(p>32767)p=32767;else if(p< -32768)p=-32768;
+ v->mono_predictor=(int16_t)p;
+ int32_t ix=(int32_t)v->mono_index+blue_ima_index[n&7u];
+ if(ix>88)ix=88;else if(ix<0)ix=0;
+ v->mono_index=(uint8_t)ix;
+ return (int16_t)p;
+}
+static int32_t blue_ima_wave(struct track_drum_voice *v,uint32_t idx,uint32_t frac){
+ /* idx advances monotonically by <=2 per output frame even at +36 semitones.
+  * Caller checked idx against sample_frames before reading. */
+ uint8_t slot=(uint8_t)(v->id-64u);
+ while(v->mono_decoded<=idx+1u){
+  v->mono_current=v->mono_next;
+  v->mono_next=blue_ima_next(v,slot);
+ }
+ return (int32_t)v->mono_current +
+  (int32_t)((((int64_t)v->mono_next-v->mono_current)*frac)>>16u);
+}
+#endif
 static uint32_t sample_frames(uint8_t id,const struct beetle_oneshot_bank *bank){
+#if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
+ if(id>=64u&&id<80u)return (blue_monolith_offset[id-63u]-blue_monolith_offset[id-64u])*2u;
+#endif
  if(id>=16u){uint8_t s=(uint8_t)(id-16u);return bank&&s<BEETLE_ONESHOT_NOTES?bank->length[s]:0u;}
  const uint8_t i=rom_index[id];return beetle_drum_offsets[i+1u]-beetle_drum_offsets[i];
 }
@@ -117,16 +165,25 @@ static void update_length(struct track_drum_voice *v,const struct track_drum_tim
  v->env_loss_q16=(uint16_t)loss;
 }
 int track_drum_trigger(struct track_drum_engine *d,uint8_t index){
- if(!d||index>=TRACK_DRUM_NOTE_COUNT)return 0;
- const uint8_t user=(uint8_t)(index>=TRACK_DRUM_COUNT);
+ if(!d)return 0;
+#if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
+ const uint8_t mono=(uint8_t)(index>=64u && index<80u);
+ if(index>=TRACK_DRUM_NOTE_COUNT&&!mono)return 0;
+ const uint8_t component=(uint8_t)(mono?(index==78u?1u:(index==79u?2u:(index-64u))):index);
+#else
+ if(index>=TRACK_DRUM_NOTE_COUNT)return 0;
+ const uint8_t component=index;
+ const uint8_t mono=0u;
+#endif
+ const uint8_t user=(uint8_t)(!mono && index>=TRACK_DRUM_COUNT);
 #if defined(BEETLE_NATIVE_V2) && BEETLE_NATIVE_V2
  const uint8_t global=user && beetle_bd4_live_available((uint8_t)(index-TRACK_DRUM_COUNT));
 #else
  const uint8_t global=0u;
 #endif
  if(user && !global && (!d->oneshots||!d->oneshots->length[index-BEETLE_ONESHOT_FIRST]))return 0;
- const uint8_t id=global?(uint8_t)(32u+index-TRACK_DRUM_COUNT):user?(uint8_t)(16u+index-BEETLE_ONESHOT_FIRST):choose(d,physical[index]);
- if(hat(id))for(uint8_t i=0;i<TRACK_DRUM_POLY;i++){
+ const uint8_t id=mono?index:global?(uint8_t)(32u+index-TRACK_DRUM_COUNT):user?(uint8_t)(16u+index-BEETLE_ONESHOT_FIRST):choose(d,physical[index]);
+ if(hat(id)||(mono&&(index==66u||index==67u||index==79u)))for(uint8_t i=0;i<TRACK_DRUM_POLY;i++){
   struct track_drum_voice *old=&d->voices[i];
   if(old->active&&hat(old->id)&&(!old->release_frames||old->release_frames>48u))old->release_frames=48u;
  }
@@ -143,12 +200,12 @@ int track_drum_trigger(struct track_drum_engine *d,uint8_t index){
  beetle_bd4_live_stop((uint8_t)target);
 #endif
  *v=(struct track_drum_voice){0};
- v->sequence=++d->trigger_serial;v->id=id;v->component=index;
+ v->sequence=++d->trigger_serial;v->id=id;v->component=component;
  v->source_lane=TRACK_DRUM_CHANNEL; /* native DRUM uses six routed lanes */
  /* Choke groups 1–7 are shared across factory and user samples.
   * Group 0 is independent; the original factory open/closed hi-hat
   * choke still works before voice allocation. */
- const struct track_drum_timbre *p=drum_control(d,index);
+ const struct track_drum_timbre *p=drum_control(d,component);
  if(p->choke_group){
   const uint8_t group=p->choke_group;
   for(uint8_t x=0;x<TRACK_DRUM_POLY;x++){
@@ -173,6 +230,9 @@ int track_drum_trigger(struct track_drum_engine *d,uint8_t index){
  v->gain_q8=(uint16_t)(256u*p->gain/100u);
  v->env_q24=16777215u;v->noise_state=rnd(&d->rng);
  v->phase_step=rate_step(p->pitch);v->pitch_semitones=p->pitch;v->active=1u;
+#if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
+ if(mono)v->phase_step=(uint32_t)(((uint64_t)v->phase_step*BLUE_MONOLITH_RATE)/BEETLE_DRUM_ROM_RATE);
+#endif
  if(global){
   v->length=900000u; /* max 20 s @ 44.1 kHz, source determines actual end */
   v->env_loss_q16=1u;
@@ -183,7 +243,15 @@ int track_drum_trigger(struct track_drum_engine *d,uint8_t index){
  return 1;
 }
 int track_drum_trigger_pair(struct track_drum_engine *d,uint8_t first,uint8_t second){
- const uint8_t a=first<TRACK_DRUM_NOTE_COUNT,b=second<TRACK_DRUM_NOTE_COUNT;
+ const uint8_t a=(uint8_t)(first<TRACK_DRUM_NOTE_COUNT
+#if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
+ ||(first>=64u&&first<80u)
+#endif
+ ),b=(uint8_t)(second<TRACK_DRUM_NOTE_COUNT
+#if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
+ ||(second>=64u&&second<80u)
+#endif
+ );
  if(!a&&!b)return 0;
  if(a&&b){
   if(first==second&&first<TRACK_DRUM_COUNT&&hat(physical[first]))return track_drum_trigger(d,first);
@@ -209,8 +277,11 @@ int track_drum_trigger_pair_tuned(struct track_drum_engine *d,uint8_t a,uint8_t 
    int32_t combined=(int32_t)v->pitch_semitones+semitones;
    if(combined<-36)combined=-36;if(combined>36)combined=36;
    v->pitch_semitones=(int8_t)combined;v->phase_step=rate_step(v->pitch_semitones);
+#if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
+ if(v->id>=64u&&v->id<80u)v->phase_step=(uint32_t)(((uint64_t)v->phase_step*BLUE_MONOLITH_RATE)/BEETLE_DRUM_ROM_RATE);
+#endif
 #if defined(BEETLE_NATIVE_V2) && BEETLE_NATIVE_V2
-   if(v->id>=32u)continue; /* DPCM4 stream owns its decoded frame count. */
+   if(v->id>=32u&&v->id<64u)continue; /* DPCM4 stream owns its decoded frame count. */
 #endif
    update_length(v,
 #if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
@@ -225,8 +296,11 @@ int track_drum_trigger_pair_tuned(struct track_drum_engine *d,uint8_t a,uint8_t 
 void track_drum_retune_voice(struct track_drum_engine *d,struct track_drum_voice *v){
  if(!d||!v||!v->active)return;
  v->phase_step=rate_step(v->pitch_semitones);
+#if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
+ if(v->id>=64u&&v->id<80u)v->phase_step=(uint32_t)(((uint64_t)v->phase_step*BLUE_MONOLITH_RATE)/BEETLE_DRUM_ROM_RATE);
+#endif
 #if defined(BEETLE_NATIVE_V2) && BEETLE_NATIVE_V2
- if(v->id>=32u)return; /* Do not derive ROM length for streamed data. */
+ if(v->id>=32u&&v->id<64u)return; /* Do not derive ROM length for streamed data. */
 #endif
  update_length(v,
 #if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
@@ -302,7 +376,7 @@ void track_drum_render(struct track_drum_engine *d,const struct track_mixer *mix
   drum_chunk_rom[i]=v->id<16u?beetle_drum_rom+beetle_drum_offsets[rom_index[v->id]]:0;
 #endif
   if(v->active){
-   voice_frames[i]=v->id>=32u?0xFFFFFFFFu:sample_frames(v->id,d->oneshots);
+   voice_frames[i]=(v->id>=32u&&v->id<64u)?0xFFFFFFFFu:sample_frames(v->id,d->oneshots);
    voice_floor[i]=(uint32_t)ctrl->sustain*16777215u/100u;
    voice_attack[i]=(uint32_t)ctrl->attack*25u;
   }else voice_frames[i]=voice_floor[i]=voice_attack[i]=0u;
@@ -328,7 +402,7 @@ void track_drum_render(struct track_drum_engine *d,const struct track_mixer *mix
    if(idx>=voice_frames[i]||v->age>=v->length){v->active=0u;continue;}
 #if defined(BEETLE_NATIVE_V2) && BEETLE_NATIVE_V2
    int16_t streamed=0;
-   if(v->id>=32u){
+   if(v->id>=32u && v->id<64u){
     int state=beetle_bd4_live_next(i,v->sequence,&streamed);
     if(state<0){v->active=0u;continue;}
     /* A global user sample's DMA phase, AGE, amplitude envelope and gate
@@ -350,7 +424,7 @@ void track_drum_render(struct track_drum_engine *d,const struct track_mixer *mix
 #endif
    int32_t wave;
 #if defined(BEETLE_NATIVE_V2) && BEETLE_NATIVE_V2
-   if(v->id>=32u){
+   if(v->id>=32u && v->id<64u){
     /* BD4S playback is already fully resampled to 44.1 kHz by its own
      * RAM-only decoder. Skip the unrelated factory-ROM 64-bit interpolation
      * entirely for global user samples (six voices x every audio frame). */
@@ -358,11 +432,18 @@ void track_drum_render(struct track_drum_engine *d,const struct track_mixer *mix
    }else
 #endif
    {
+#if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
+    if(v->id>=64u && v->id<80u){
+      wave=blue_ima_wave(v,idx,frac);
+    }else
+#endif
+    {
     const int32_t one=rom?beetle_ulaw_decode[rom[idx]]:
          get_pcm(v->id,idx,d->oneshots,v->oneshot_offset);
     const int32_t two=rom?(idx+1u<voice_frames[i]?beetle_ulaw_decode[rom[idx+1u]]:0):
          get_pcm(v->id,idx+1u,d->oneshots,v->oneshot_offset);
     wave=one+(int32_t)(((int64_t)(two-one)*frac)>>16u);
+    }
    }
    /* Real 3-band sample EQ (low/mid/high); all voice state is independent. */
    v->noise_lp+= (wave-v->noise_lp)>>5u; /* approx 220 Hz */

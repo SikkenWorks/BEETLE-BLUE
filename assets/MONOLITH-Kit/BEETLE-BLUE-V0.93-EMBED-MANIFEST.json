@@ -1,0 +1,167 @@
+{
+  "source_archive": "MONOLITH Kit(1).zip",
+  "container_note": "All sixteen drum sounds included as lossy IMA-ADPCM4 at 8000Hz with lengths shortened to fit existing protected firmware application region. Original source WAVs retained in assets.",
+  "notes": "Not the unmodified original WAV quality; no sample transfer needed; MONOLITH sources do not use Storage V2.",
+  "samples": [
+    {
+      "source": "kick.wav",
+      "original_sha256": "9f58c8d1b60a4e3157848420c02b8d11a76ddccfb22a40adc8eb91b6301a5b8a",
+      "original_rate": 44100,
+      "original_duration_s": 1.0,
+      "embedded_rate": 8000,
+      "embedded_duration_s": 0.95,
+      "embedded_frames": 7600,
+      "encoded_bytes": 3800
+    },
+    {
+      "source": "snare_1.wav",
+      "original_sha256": "84ff0279da53e7eed86868a2a4e607f9191a8b6a179792991bf507d1019c8ec8",
+      "original_rate": 44100,
+      "original_duration_s": 1.0,
+      "embedded_rate": 8000,
+      "embedded_duration_s": 0.75,
+      "embedded_frames": 6000,
+      "encoded_bytes": 3000
+    },
+    {
+      "source": "hihat_1.wav",
+      "original_sha256": "d4961f60f6808151db7c44d5b431720e5ad6b0d99e6eb159d3e04dae3c2f3112",
+      "original_rate": 44100,
+      "original_duration_s": 1.0,
+      "embedded_rate": 8000,
+      "embedded_duration_s": 0.4,
+      "embedded_frames": 3200,
+      "encoded_bytes": 1600
+    },
+    {
+      "source": "open_hihat.wav",
+      "original_sha256": "7a6a5c3075a1fbec20e559eac8009587f07f031ed28329a66c491b65b254c65f",
+      "original_rate": 44100,
+      "original_duration_s": 1.0,
+      "embedded_rate": 8000,
+      "embedded_duration_s": 0.7,
+      "embedded_frames": 5600,
+      "encoded_bytes": 2800
+    },
+    {
+      "source": "tom_1.wav",
+      "original_sha256": "2a44763ba2226a2c7b49ca267061cc663d5b0172fa203042b80a45c6d5503727",
+      "original_rate": 44100,
+      "original_duration_s": 1.0,
+      "embedded_rate": 8000,
+      "embedded_duration_s": 0.95,
+      "embedded_frames": 7600,
+      "encoded_bytes": 3800
+    },
+    {
+      "source": "tom_2.wav",
+      "original_sha256": "4282e87566249d1eb053de79aabb170efec298613cd2313f193a749e042bdd89",
+      "original_rate": 44100,
+      "original_duration_s": 1.0,
+      "embedded_rate": 8000,
+      "embedded_duration_s": 0.95,
+      "embedded_frames": 7600,
+      "encoded_bytes": 3800
+    },
+    {
+      "source": "tom_3.wav",
+      "original_sha256": "1d094ef097b6d15fbd488ce3245fa00404ab8ceaf55b1e186ee347cb99210e4b",
+      "original_rate": 44100,
+      "original_duration_s": 1.0,
+      "embedded_rate": 8000,
+      "embedded_duration_s": 0.95,
+      "embedded_frames": 7600,
+      "encoded_bytes": 3800
+    },
+    {
+      "source": "crash.wav",
+      "original_sha256": "eb158456aefa800544122b7bbe3e05971a62cdbc9d286b920f584a9197127d1d",
+      "original_rate": 44100,
+      "original_duration_s": 3.0,
+      "embedded_rate": 8000,
+      "embedded_duration_s": 1.5,
+      "embedded_frames": 12000,
+      "encoded_bytes": 6000
+    },
+    {
+      "source": "ride.wav",
+      "original_sha256": "8e4e6e3a3c1b9f5a76824c6f3589af7a5eb23a8281e82be137e9dbdb6ec6bcf9",
+      "original_rate": 44100,
+      "original_duration_s": 1.0,
+      "embedded_rate": 8000,
+      "embedded_duration_s": 0.95,
+      "embedded_frames": 7600,
+      "encoded_bytes": 3800
+    },
+    {
+      "source": "clap.wav",
+      "original_sha256": "29f75eafee5e4000a438d70088b909a35963c0a069993f4256bede45cc2f2b2c",
+      "original_rate": 44100,
+      "original_duration_s": 1.0,
+      "embedded_rate": 8000,
+      "embedded_duration_s": 0.55,
+      "embedded_frames": 4400,
+      "encoded_bytes": 2200
+    },
+    {
+      "source": "perc_1.wav",
+      "original_sha256": "75ab53de5e807eabbfd2803c9e8017c533ecacee0fbaec32226b113aaf2a5149",
+      "original_rate": 44100,
+      "original_duration_s": 1.0,
+      "embedded_rate": 8000,
+      "embedded_duration_s": 0.85,
+      "embedded_frames": 6800,
+      "encoded_bytes": 3400
+    },
+    {
+      "source": "perc_2.wav",
+      "original_sha256": "61ce84be78b330fa901f84fbd3aeb549187573c14e2a14dfafffbcc5fa3cf49d",
+      "original_rate": 44100,
+      "original_duration_s": 1.0,
+      "embedded_rate": 8000,
+      "embedded_duration_s": 0.65,
+      "embedded_frames": 5200,
+      "encoded_bytes": 2600
+    },
+    {
+      "source": "perc_3.wav",
+      "original_sha256": "97dc5103c034f5dc484b8ffea3e4c2807421ba4552f2358de780ad0b67b4077b",
+      "original_rate": 44100,
+      "original_duration_s": 1.0,
+      "embedded_rate": 8000,
+      "embedded_duration_s": 0.85,
+      "embedded_frames": 6800,
+      "encoded_bytes": 3400
+    },
+    {
+      "source": "rim.wav",
+      "original_sha256": "f93b533cf4aff93076b3e5d64d273026dd14be1600b14673f4b5b1ce3112af35",
+      "original_rate": 44100,
+      "original_duration_s": 1.0,
+      "embedded_rate": 8000,
+      "embedded_duration_s": 0.65,
+      "embedded_frames": 5200,
+      "encoded_bytes": 2600
+    },
+    {
+      "source": "snare_2.wav",
+      "original_sha256": "77b01f18cdf13d421faca68854615f840d13086be9ac6ad2fccf9c67df0cd42e",
+      "original_rate": 44100,
+      "original_duration_s": 1.0,
+      "embedded_rate": 8000,
+      "embedded_duration_s": 0.75,
+      "embedded_frames": 6000,
+      "encoded_bytes": 3000
+    },
+    {
+      "source": "hihat_2.wav",
+      "original_sha256": "871cbb29951abfa80d3491cb7a73da356635ab601933a0a609399269683b134c",
+      "original_rate": 44100,
+      "original_duration_s": 1.0,
+      "embedded_rate": 8000,
+      "embedded_duration_s": 0.3,
+      "embedded_frames": 2400,
+      "encoded_bytes": 1200
+    }
+  ]
+}
