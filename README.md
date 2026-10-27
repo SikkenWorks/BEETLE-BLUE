@@ -10,7 +10,6 @@
 
 <p align="center">
   <a href="https://sikkenworks.github.io/BEETLE-BLUE/WebInstaller.html"><img src="https://img.shields.io/badge/%E2%96%B2_INSTALL_BEETLE_BLUE-006EFF?style=for-the-badge" alt="Install BEETLE BLUE"></a>
-  <a href="https://sikkenworks.github.io/BEETLE-BLUE/simulator.html"><img src="https://img.shields.io/badge/%E2%96%B6_WEB_SIMULATOR-000000?style=for-the-badge" alt="Open BEETLE BLUE WebSimulator"></a>
   <a href="https://sikkenworks.github.io/BEETLE-BLUE/BEETLE-BLUE-Project-Manager.html"><img src="https://img.shields.io/badge/%E2%96%B6_PROJECT_MANAGER-000000?style=for-the-badge" alt="Open BEETLE BLUE Project Manager"></a>
   <a href="https://sikkenworks.github.io/BEETLE-BLUE/BEETLE-BLUE-Manager.html"><img src="https://img.shields.io/badge/%E2%96%B6_ALL--IN--ONE_MANAGER-000000?style=for-the-badge" alt="Open BEETLE BLUE Manager"></a>
   <a href="https://thefirmwarehub.com/?q=sikkenworks"><img src="https://img.shields.io/badge/%E2%96%B6_THE_FIRMWARE_HUB-000000?style=for-the-badge" alt="The Firmware Hub"></a>
