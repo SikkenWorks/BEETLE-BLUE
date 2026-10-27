@@ -1322,6 +1322,9 @@ static void track_audio_fire(struct etch_native_audio *audio,uint8_t lane_mask){
       track_drum_retune_voice(&track_drum,hit);
     }
     if(fx==TRACK_FX_VOLUME)hit->gain_q8=(uint16_t)((uint32_t)hit->gain_q8*value/100u);
+#if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
+    if(fx==TRACK_FX_REVERSE)track_drum_reverse_voice(hit);
+#endif
     /* Additional NOTE1/NOTE2 FX are independent for each drum hit. */
     for(uint8_t slot=0u;slot<2u;slot++){
      const struct track_extra_fx *extra=track_drum_note3_enabled?0:track_audio_extra(TRACK_DRUM_CHANNEL,position,second_hit,slot);
@@ -1332,6 +1335,9 @@ static void track_audio_fire(struct etch_native_audio *audio,uint8_t lane_mask){
       hit->pitch_semitones=(int8_t)pitch;track_drum_retune_voice(&track_drum,hit);
      }else if(track_extra_effect(extra)==TRACK_FX_VOLUME)
       hit->gain_q8=(uint16_t)((uint32_t)hit->gain_q8*extra->value/100u);
+#if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
+     else if(track_extra_effect(extra)==TRACK_FX_REVERSE)track_drum_reverse_voice(hit);
+#endif
     }
     hit->gain_q8=(uint16_t)((uint32_t)hit->gain_q8*vel/94u);
 #if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
@@ -1448,10 +1454,16 @@ static void track_audio_fire(struct etch_native_audio *audio,uint8_t lane_mask){
    uint32_t gain=(uint32_t)voice->gain_q8*vel;
    voice->gain_q8=(uint16_t)(gain/94u);
    if(s->effect==TRACK_FX_VOLUME)voice->gain_q8=(uint16_t)((uint32_t)voice->gain_q8*s->value/100u);
+   if(s->effect==TRACK_FX_REVERSE)track_drum_reverse_voice(voice);
    if(s->effect==TRACK_FX_DRUM_PITCH){
     int32_t pitch=(int32_t)voice->pitch_semitones+(int32_t)s->value-12;
     if(pitch<-36)pitch=-36;if(pitch>36)pitch=36;
     voice->pitch_semitones=(int8_t)pitch;track_drum_retune_voice(&track_drum,voice);
+   }
+   for(uint8_t extra_slot=0u;extra_slot<2u;extra_slot++){
+    const struct track_extra_fx *rev_extra=track_audio_extra(c,position,0u,extra_slot);
+    if(rev_extra && track_extra_effect(rev_extra)==TRACK_FX_REVERSE)
+     track_drum_reverse_voice(voice);
    }
    uint8_t gate=track_step_gate(s);
    if(gate){uint32_t cap=period*gate/16u;
@@ -1902,7 +1914,7 @@ static void track_web_list(const char *const *items,uint8_t count,uint8_t select
  }
 }
 static const char *const track_web_stepfx[TRACK_FX_COUNT]={
- "---","FILTER","DRIVE","DELAY","REVERB","CHORUS","VIB","ARP","CUT","TREMOLO","VOLUME","PITCH"};
+ "---","FILTER","DRIVE","DELAY","REVERB","CHORUS","VIB","ARP","CUT","TREMOLO","VOLUME","PITCH","REV"};
 /* V0.48: calculate the exact displayed bracket width before placing a cursor.
  * The previous 13px tall rectangle overlapped the next 10px tracker row. */
 static uint8_t track_grid_value_chars(const struct track_step *step,uint8_t drum,uint8_t column){
@@ -2898,7 +2910,7 @@ static void track_fm1_paint(void){
   track_pix_center("K1 CHOOSE   SEL OPEN",120u,209u,TRACK_PINK);
   track_pix_center(
 #if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
- "BEETLE BLUE V0.94",
+ "BEETLE BLUE V0.95",
 #else
  "BEETLE V1.7.14",
 #endif

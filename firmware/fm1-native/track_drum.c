@@ -122,13 +122,20 @@ static int32_t blue_rom_wave(struct track_drum_voice *v,uint8_t pad){
   if(phase==1u)wave=(wave*3)>>2u;
   if(phase==2u)wave=(wave*2)>>2u;
  }
+ /* Procedural MONOLITH has no stored PCM. Reverse the oscillator direction
+  * and rise with a fixed-point envelope. Never divide in the DMA callback.
+  * This is explicitly reverse-style synthesis, not literal time-reversed PCM. */
  const uint32_t scale=v->kit_env>>16u;
- wave=(int32_t)(((int64_t)wave*scale)>>8u); /* env initial 2^24 */
+ wave=(int32_t)(((int64_t)wave*scale)>>8u);
  uint32_t sweep=v->kit_sweep;
- v->kit_phase+=p->phase_inc+sweep;
-
+ if(v->reverse)v->kit_phase-=p->phase_inc+sweep;
+ else v->kit_phase+=p->phase_inc+sweep;
  if(sweep){uint32_t loss=sweep>>10u;if(!loss)loss=1u;v->kit_sweep-=loss;}
- if(v->kit_env){uint32_t loss=v->kit_env>>p->env_shift;
+ if(v->reverse){
+  uint32_t step=(16777215u-v->kit_env)>>p->env_shift;
+  if(!step)step=1u;
+  v->kit_env+=step;
+ }else if(v->kit_env){uint32_t loss=v->kit_env>>p->env_shift;
   if(!loss)loss=1u;v->kit_env-=loss;}
  return wave;
 }
@@ -298,6 +305,16 @@ void track_drum_retune_voice(struct track_drum_engine *d,struct track_drum_voice
 #endif
  ,d->oneshots);
 }
+#if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
+uint8_t track_drum_reverse_voice(struct track_drum_voice *v){
+ if(!v||!v->active || (v->id>=32u&&v->id<64u))return 0u;
+ if(!v->reverse){
+  v->reverse=1u;
+  if(v->id>=64u&&v->id<80u)v->kit_env=0u;
+ }
+ return 1u;
+}
+#endif
 void track_drum_choke_all(struct track_drum_engine *d){
  if(!d)return;
  for(uint8_t i=0u;i<TRACK_DRUM_POLY;i++)if(d->voices[i].active &&
@@ -442,10 +459,15 @@ void track_drum_render(struct track_drum_engine *d,const struct track_mixer *mix
     }else
 #endif
     {
-    const int32_t one=rom?beetle_ulaw_decode[rom[idx]]:
-         get_pcm(v->id,idx,d->oneshots,v->oneshot_offset);
-    const int32_t two=rom?(idx+1u<voice_frames[i]?beetle_ulaw_decode[rom[idx+1u]]:0):
-         get_pcm(v->id,idx+1u,d->oneshots,v->oneshot_offset);
+    /* Literal reverse addressing for immutable BEETLE ROM and project-local
+     * sample PCM. Other voices keep their original forward playhead. */
+    const uint32_t rev=(uint32_t)(v->reverse&&voice_frames[i]!=0u);
+    const uint32_t at=rev?voice_frames[i]-1u-idx:idx;
+    const uint32_t next=rev?(at?at-1u:voice_frames[i]):idx+1u;
+    const int32_t one=rom?beetle_ulaw_decode[rom[at]]:
+         get_pcm(v->id,at,d->oneshots,v->oneshot_offset);
+    const int32_t two=rom?(next<voice_frames[i]?beetle_ulaw_decode[rom[next]]:0):
+         get_pcm(v->id,next,d->oneshots,v->oneshot_offset);
     wave=one+(int32_t)(((int64_t)(two-one)*frac)>>16u);
     }
    }

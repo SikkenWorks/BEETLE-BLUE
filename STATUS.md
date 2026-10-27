@@ -1,1 +1,1 @@
-BEETLE BLUE V0.94 · Experimental · Native build and host tests passed; hardware DMA/flash/USB/analogue safety not validated. See validation/V0.94-RESULTS.md.
+BEETLE BLUE V0.95 · Pre-RC experimental. REV native step effect implemented for BEETLE PCM and reverse-style MONOLITH, but Storage V2 streamed sample REV unsupported. Real FM1 DMA, OTA and audio hardware validation outstanding. See validation/V0.95-RESULTS.md.

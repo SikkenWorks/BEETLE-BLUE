@@ -20,6 +20,7 @@ struct track_drum_voice {
  /* Fully procedural MONOLITH ROM kit: fixed-cost, 44.1 kHz patches.
   * No ADPCM/stream decoder and no allocation in the audio interrupt. */
  uint32_t kit_phase,kit_sweep,kit_env;
+ uint8_t reverse; /* transient per-hit REV, never serialized */
 #endif
  uint8_t source_lane; /* V0.4: original CH6 or one of the five new drum lanes */
 #if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
@@ -52,6 +53,11 @@ int track_drum_trigger_pair_tuned(struct track_drum_engine *d,uint8_t first,uint
 /* Update an already-triggered voice after per-NOTE pitch FX (ISR-safe). */
 void track_drum_retune_voice(struct track_drum_engine *d,struct track_drum_voice *v);
 void track_drum_stop(struct track_drum_engine *d);
+#if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
+/* Returns 1 if REV is supported for this voice (BEETLE PCM / MONOLITH ROM).
+ * Streaming BD4S samples have no reverse seeks and are rejected. */
+uint8_t track_drum_reverse_voice(struct track_drum_voice *v);
+#endif
 /* Fast, bounded 48-frame fade for -- Song Chain transitions. */
 void track_drum_choke_all(struct track_drum_engine *d);
 void track_drum_render(struct track_drum_engine *d,const struct track_mixer *mix,int16_t *stereo,uint32_t frames);
