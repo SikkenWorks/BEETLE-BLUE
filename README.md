@@ -4,248 +4,260 @@
 
 <h1 align="center">BEETLE BLUE</h1>
 <p align="center">
-  <strong>An open-source, six-channel drum tracker and sample-based music workstation for the M-VAVE FM1.</strong><br>
+  <strong>An open-source, six-channel drum tracker and ROM-based drum workstation for the M-VAVE FM1.</strong><br>
   SikkenWorks · Born out of passion.
 </p>
 
 <p align="center">
-  <a href="https://sikkenworks.github.io/BEETLE-BLUE/WebInstaller.html"><img src="https://img.shields.io/badge/▲_INSTALL_BEETLE-000000?style=for-the-badge" alt="Install BLUE"></a>
-  <a href="https://sikkenworks.github.io/BEETLE-BLUE/simulator.html"><img src="https://img.shields.io/badge/▶_WEB_SIMULATOR-000000?style=for-the-badge" alt="Open BLUE Web Simulator"></a>
-  <a href="https://sikkenworks.github.io/BEETLE-BLUE/BEETLE-BLUE-Project-Manager.html"><img src="https://img.shields.io/badge/▶_PROJECT_MANAGER-000000?style=for-the-badge" alt="Open BLUE Project Manager"></a>
-  <a href="https://sikkenworks.github.io/BEETLE-BLUE/BEETLE-BLUE-MANAGER.html"><img src="https://img.shields.io/badge/▶_ALL--IN--ONE_MANAGER-000000?style=for-the-badge" alt="BLUE All-in-One Manager"></a>
-  <a href="https://thefirmwarehub.com/?q=sikkenworks"><img src="https://img.shields.io/badge/▶_THE_FIRMWARE_HUB-000000?style=for-the-badge" alt="The Firmware Hub"></a>
+  <a href="https://sikkenworks.github.io/BEETLE-BLUE/WebInstaller.html"><img src="https://img.shields.io/badge/%E2%96%B2_INSTALL_BEETLE_BLUE-006EFF?style=for-the-badge" alt="Install BEETLE BLUE"></a>
+  <a href="https://sikkenworks.github.io/BEETLE-BLUE/simulator.html"><img src="https://img.shields.io/badge/%E2%96%B6_WEB_SIMULATOR-000000?style=for-the-badge" alt="Open BEETLE BLUE WebSimulator"></a>
+  <a href="https://sikkenworks.github.io/BEETLE-BLUE/BEETLE-BLUE-Project-Manager.html"><img src="https://img.shields.io/badge/%E2%96%B6_PROJECT_MANAGER-000000?style=for-the-badge" alt="Open BEETLE BLUE Project Manager"></a>
+  <a href="https://sikkenworks.github.io/BEETLE-BLUE/BEETLE-BLUE-Manager.html"><img src="https://img.shields.io/badge/%E2%96%B6_ALL--IN--ONE_MANAGER-000000?style=for-the-badge" alt="Open BEETLE BLUE Manager"></a>
+  <a href="https://thefirmwarehub.com/?q=sikkenworks"><img src="https://img.shields.io/badge/%E2%96%B6_THE_FIRMWARE_HUB-000000?style=for-the-badge" alt="The Firmware Hub"></a>
 </p>
 
 <p align="center">
-  <sub>Development release: <strong>V0.8 EXPERIMENTAL</strong> · <a href="CHANGELOG.md">Release history</a> · <a href="validation/V0.8-RESULTS.md">Software validation</a></sub>
+  <sub>Development release: <strong>V0.94 EXPERIMENTAL</strong> · <a href="CHANGELOG.md">Release history</a> · <a href="validation/V0.94-RESULTS.md">Software validation</a></sub>
 </p>
-
-> **Experimental firmware.** The supplied `.fwsc` is a genuine software-built native firmware container, **not a hardware-certified release**. Physical FM1 flashing, audio peak safety, NOR flash endurance, USB recording and OTA recovery have not been verified. Use a dedicated test device only after confirming an independent recovery method and making backups.
 
 ---
 
 <h2 align="center">A DRUM MACHINE. A TRACKER. A POCKET-SIZED WORKSTATION.</h2>
 <p align="center">
-  <strong>Build beats across six dedicated drum channels, design your own kits, sequence songs and perform with live effects.</strong><br>
-  <sub>Made for the M-VAVE FM1, with a blue pixel-art interface and hands-on hardware controls.</sub>
+  <strong>Build beats across six dedicated drum lanes, shape your own kits, arrange songs and perform with live effects.</strong><br>
+  <sub>Two built-in drum kits. Twelve global User Kits. A blue pixel-art interface. Hands-on FM1 controls.</sub>
 </p>
 
 ## What is BEETLE BLUE?
 
-**BEETLE BLUE** is a drum-focused fork of [BEETLE](https://github.com/SikkenWorks/BEETLE), developed for the **M-VAVE FM1**. Rather than using BEETLE's five synthesizer lanes and one drum lane, BLUE is designed around **six drum channels** and a kit-based workflow.
+**BEETLE BLUE** is the drum-focused fork of [BEETLE](https://github.com/SikkenWorks/BEETLE) for the **M-VAVE FM1**. Instead of BEETLE's five synth lanes and one drum lane, BLUE routes its six sequencer lanes to drums. BEETLE BLUE is derived from the BEETLE V1.7.14 code base; its retained project, storage, effects, USB and OTA code should not be confused with features independently validated on real hardware.
 
-| Feature | BEETLE BLUE V0.8 |
+| Feature | BEETLE BLUE V0.94 |
 | :-- | :-- |
-| **Drum channels** | Six sequencer lanes for drum patterns |
-| **Patterns** | 48 patterns, with up to 16 steps per pattern |
-| **Song arrangement** | 64 song-chain positions with pattern sequencing |
-| **Drum sounds** | 14 factory ROM components plus 13 global user-sample slots, U01–U13 |
-| **Factory kit variations** | 12 starting timbre kits, selectable from DRUM EDIT |
-| **Kit Designer** | 2 fixed source choices and 12 global, user-stored drum timbre kit slots |
-| **Active kit palette** | Eight `INST 1–8` assignments stored per project |
-| **Sample editing** | Start, end, ADSR, gain, drive and choke controls for user-sample drum components |
-| **Performance** | Lane mixer, drum component mixer, Punch-In FX, snapshots and mute groups |
-| **Projects** | 12 device project slots; `BDR1` V29; encrypted `.bdrum` backups |
-| **USB audio** | Existing experimental stereo / six-stem USB-C capture code |
+| **Drum lanes** | 6 independent sequencer lanes; each has a project-saved kit assignment |
+| **Patterns** | 48 patterns, up to 16 steps per pattern |
+| **Song Mode** | Up to 64 chain positions |
+| **Built-in kit: BEETLE** | Original 14-sound PCM/µ-law ROM drum kit |
+| **Built-in kit: MONOLITH** | 16 distinct procedural ROM drum patches at 44.1 kHz, inspired by the supplied MONOLITH WAVs |
+| **Global User Kits** | 12 saved timbre-preset slots (not 12 separate WAV banks) |
+| **Kit Designer** | 8 project kit references (`INST 1–8`) and kit selection per lane |
+| **Global user samples** | U01–U13; optional and independent of the two built-in ROM kits |
+| **Sample editing** | START / END, ADSR, GAIN, DRIVE and CHOKE for user samples |
+| **Mixing** | Lane Mixer and kit-specific Drum Mixer |
+| **Performance** | Punch-In FX, groove controls, mute groups, snapshots and Song Mode |
+| **Project storage** | 12 device project slots; `BDR1` schema **V30**; `.bdrum` backup files |
+| **USB audio** | Inherited experimental stereo and six-mono-stem capture paths |
+| **UI** | Blue native LCD theme and C-rendered 1920 × 1920 reference captures |
 
-The drum engine, live performance features, project handling and USB code descend from **BEETLE V1.7.14**. BLUE's native drum-specific features are described below. A successful compilation or Web/host simulation must not be mistaken for real FM1 verification.
+### V0.94: core audio stability fix
 
-## Where to Start
+When BLUE omitted the original synthesizer renderer, it also skipped the operation that cleared the stereo PCM output buffer. The drum renderer **adds** drum audio to that buffer. In earlier BLUE builds, an uncleared buffer could therefore contain samples from the previous DMA block and lead to accumulating audio, distortion and incorrect sound from **both** kits.
+
+**V0.94 explicitly zeros each destination PCM block before mixing the drums.** It also avoids unnecessary work for inactive voices, calculates EQ gains once per render chunk and reduces expensive arithmetic in the sample loop. The native build and host tests pass, but the reported physical double-kick DMA failure is **not yet proven resolved on the FM1**.
+
+## The Two Built-in Drum Kits
+
+### BEETLE
+
+**BEETLE** is the original 14-component PCM/µ-law ROM kit carried over from BEETLE. Its ROM audio assets remain in firmware and its drum settings can still be edited. The previous UI name `DEFAULT / ROM` has been changed to **BEETLE**.
+
+### MONOLITH
+
+**MONOLITH is built into V0.94.** No WAV import, `.beetlebank`, Project Manager upload or Storage V2 sample slot is required to hear its 16 drum sounds. Its audio is generated by its own **procedural ROM-based drum engine**, using fixed tone/noise settings and a small wavetable. This is **not** the earlier V0.93 8 kHz ADPCM samplebank, and it is not bit-identical to the 16 source WAVs.
+
+| Components | MONOLITH character | Reference WAV(s) |
+| :-- | :-- | :-- |
+| KIK | Sweeping, deep sub kick | `kick.wav` |
+| SNR / SNR2 | Two noise-and-shell snare characters | `snare_1.wav`, `snare_2.wav` |
+| HHC / HHT2 / HHO | Bright closed, alternative and open hats | `hihat_1.wav`, `hihat_2.wav`, `open_hihat.wav` |
+| TM1 / TM2 / TM3 | Tonal pitch-swept toms | `tom_1.wav`–`tom_3.wav` |
+| CRS / RDE | Longer, brighter cymbal-type patches | `crash.wav`, `ride.wav` |
+| CLP / RIM | Staggered clap and resonant rim | `clap.wav`, `rim.wav` |
+| PC1 / PC2 / PC3 | Three pitched/percussive variants | `perc_1.wav`–`perc_3.wav` |
+
+The 16 original MONOLITH WAVs are retained in the source archive as development/reference assets. They are **not** copied into the device by V0.94. The ROM engine has a 44.1 kHz render path instead of V0.93's 8 kHz ADPCM source bandwidth, but higher sample rate does **not** guarantee a more faithful or subjectively better result. Listening on the real hardware is still necessary.
+
+## Get Started on the FM1
 
 1. **Open the tracker:** press **SEQ**.
-2. **Select a drum channel:** rotate **SELECT** to choose CH1–CH6.
-3. **Choose a pattern:** rotate **ALGORITHM** to select a pattern from 01–48 while stopped.
-4. **Navigate the pattern:** use **K1** to select a step, **K2** to select a field and **K3** to edit its value.
-5. **Enter drum hits:** use the FM1 keyboard with tracker recording enabled. The built-in drum IDs and uploaded samples are part of the drum note range.
-6. **Set your tempo:** rotate **K4** in the tracker, then press **PLAY/STOP** to audition the pattern.
-7. **Shape your kit:** press **EDIT** to open DRUM EDIT, where you can adjust the selected component. With playback stopped, use **K4** to select one of the 12 factory timbre kits.
-8. **Open Kit Designer:** from **DRUM EDIT**, press **EDIT** again. Choose one of eight active `INST` assignments and its source kit. Press **SEQ** to return to the tracker.
-9. **Arrange and save:** press **ARP** for Song Chains and **SAVE** or **HOME** for project management. Make a computer backup before updating firmware or changing storage.
+2. **Choose a lane:** turn the **SELECT** rotary encoder to switch between lanes 1–6.
+3. **Assign a kit to that lane:** **hold SEQ and turn SELECT**. A temporary blue overlay shows the selected lane and kit. Every lane defaults to **BEETLE** in a new project.
+4. **Choose a pattern:** turn **ALGORITHM** in the tracker to select pattern 01–48 while stopped.
+5. **Edit steps:** **K1** moves between steps, **K2** changes the selected field and **K3** adjusts its value. Use the FM1 keyboard for drum entry/audition as supported by the current page.
+6. **Set tempo and play:** turn **K4** in the tracker to adjust BPM, then press **PLAY/STOP**.
+7. **Edit drums:** press **EDIT** to open **DRUM EDIT**; press EDIT again for **KIT DESIGNER**. Use the context labels on the FM1 display.
+8. **Mix:** press **GLO** for the Lane Mixer, then **GLO again** for the Drum Mixer.
+9. **Arrange and save:** press **ARP** for Song Mode and use **SAVE / HOME** for project operations. Back up before changing firmware or storage.
 
-> **Control terminology:** **SELECT** is the rotary encoder; **SEL** is its push-button. The same controls may have different roles on different screens.
+> **Control terminology:** **SELECT** means the rotary encoder; **SEL** means pressing that encoder. The behavior of a knob can vary by screen. Holding **SEQ** while turning SELECT is different from pressing SEL.
 
-## Kit Designer: the Three Different Kit Concepts
+## Kit Designer and Global User Kits
 
-BLUE distinguishes between **factory drum timbre variations**, **global saved kit sources**, and **active per-project kit assignments**. They are not interchangeable.
+BEETLE BLUE has three different ways to select sounds and settings. These are intentionally separate:
 
-| Concept | Count | Where it lives | What it contains |
+| Concept | Quantity | Storage | Meaning |
 | :-- | --: | :-- | :-- |
-| Factory timbre variations | 12 | Firmware | Different starting settings for the 14 ROM drum components; selected with K4 in DRUM EDIT |
-| Fixed Kit Designer sources | 2 | Firmware / global sample bank | Source `0` = BEETLE ROM; source `1` = MONOLITH routing, which requires separately uploaded WAVs |
-| Global user kit sources | 12 | Storage V2 `BBK1` metadata | Saved drum **timbre parameters** for 14 components, not copies of WAV data |
-| Active kit assignments (`INST 1–8`) | 8 | Current `.bdrum` project | References to source IDs 0–13; a primary tracker step's INST field chooses one assignment |
+| **BEETLE / MONOLITH** | 2 | Firmware ROM | Immediately available built-in drum sound sources |
+| **Global User Kits** | 12 | Storage V2 `BBK1` metadata | Factory-ROM drum timbre presets, shared across projects |
+| **Active palette (`INST 1–8`)** | 8 per project | `BDR1` project | References to one of the two built-in sources or a global User Kit |
+| **Lane kit assignment** | 6 per project | `BDR1` project | Default kit source for each drum lane, changed with SEQ + SELECT |
+| **Legacy factory timbre variations** | 12 | Firmware | Starting parameter variations in DRUM EDIT; distinct from the 12 globally saved User Kits |
 
 ### Kit Designer controls
 
-From **DRUM EDIT**, press **EDIT** to open **KIT DESIGNER**.
+From **DRUM EDIT**, press **EDIT** to enter **KIT DESIGNER**.
 
-| FM1 control | Function |
+| Control | Action |
 | :-- | :-- |
-| **K1** | Choose active assignment `INST 1–8` |
-| **K3** | Choose its source: `BEETLE ROM`, `MONOLITH` or `USER KIT 01–12` |
-| **SEL** | Store the current 14 factory-component timbre settings into the selected global USER KIT source; only while stopped and with valid Storage V2 |
+| **K1** | Choose palette entry `INST 1–8` |
+| **K3** | Choose BEETLE, MONOLITH or USER KIT 01–12 for the selected palette entry |
+| **SEL** | Store an eligible USER KIT's current timbre settings globally, when playback is stopped and Storage V2 is writable |
 | **EDIT** | Return to DRUM EDIT |
 | **SEQ** | Return to the tracker |
 
-A **global user kit** stores Attack, Decay, Sustain, Release, Gain, Pitch, Drive and Choke values for all 14 factory components. Those presets can be referenced by multiple projects, but **their audio is still sourced from the ROM instruments**. A user kit is **not** a custom multi-WAV drum kit. Changing a kit source in the project's palette marks the project as modified; **SAVE** the project to retain the assignment.
+A global User Kit stores settings such as Attack, Decay, Sustain, Release, Gain, Pitch, Drive and Choke for the factory drum components. It **does not** include 16 copied MONOLITH WAV files or its own sample bank. The project palette still allows per-step kit references using the tracker instrument field. The lane-selected kit supplies the default where the step uses the lane's normal instrument value; other `INST` values can reference the eight-entry palette. CH6 additionally has inherited NOTE2/NOTE3 behavior, so do not assume every subhit has a separate, fully independent kit selection.
 
-**Important limitation:** V0.8 applies the project kit palette to **primary tracker drum steps**. The inherited CH6 secondary/third drum hits do **not** yet independently follow those palette assignments. Do not assume every subhit changes kit with its primary step.
+### Global-kit backup limitation
 
-### How global kits are stored
+The twelve global kits live in a CRC-checked `BBK1` bank in Storage V2 metadata. These are **not** saved inside ordinary `.bdrum` project exports or `.beetlebank` global sample libraries. The current Project Manager **does not** export/import the `BBK1` bank. A downgrade, storage migration or destructive reformat may lose those presets. Keep critical settings documented separately and do not reformat the shared device storage without a complete, verified backup and recovery plan.
 
-The 12 global user timbre presets use a CRC-checked `BBK1` footer in the existing **Storage V2 metadata**, with alternating index-generation commits. Saving them is guarded by storage ownership checks and a stopped audio engine; an invalid or unavailable V2 volume causes the write to be refused.
+## Drum Editor and Sample Editor
 
-These presets are **not included** in ordinary `.bdrum` project backups, and the supplied V0.8 Project Manager **cannot export the separate BBK1 kit bank**. A firmware downgrade, older storage writer, destructive format or storage migration may lose it. Record important settings outside the device until a dedicated kit-bank backup workflow is available.
+The native Drum Editor lets you edit built-in drum timbre settings and optional user samples. The global U01–U13 sample slots remain available regardless of whether you play BEETLE or MONOLITH.
 
-## MONOLITH Default Sample Kit
-
-The included [`assets/MONOLITH-Kit/`](assets/MONOLITH-Kit/) directory contains **16 source WAV files**. Flashing the firmware does **not** install those WAVs on the FM1. BLUE currently supports **13 global user-sample slots** (`U01–U13`), so the supplied MONOLITH mapping uses 13 samples; three WAVs remain available as optional replacements.
-
-| FM1 global slot | MONOLITH WAV | Drum component |
-| :-- | :-- | :-- |
-| U01 | `kick.wav` | KIK |
-| U02 | `snare_1.wav` | SNR |
-| U03 | `hihat_1.wav` | HHC |
-| U04 | `open_hihat.wav` | HHO |
-| U05 | `tom_1.wav` | TM1 |
-| U06 | `tom_2.wav` | TM2 |
-| U07 | `tom_3.wav` | TM3 |
-| U08 | `crash.wav` | CRS |
-| U09 | `ride.wav` | RDE |
-| U10 | `clap.wav` | CLP |
-| U11 | `perc_1.wav` | PC1 |
-| U12 | `perc_2.wav` | PC2 |
-| U13 | `perc_3.wav` | PC3 |
-
-**Additional WAVs:** `rim.wav`, `snare_2.wav` and `hihat_2.wav`. The default RIM component uses its ROM sound. See the [complete mapping](assets/MONOLITH-Kit/MONOLITH-FM1-SLOT-MAP.json).
-
-To use MONOLITH routing, upload the mapped WAVs into the corresponding **global** U-slots using the V0.8 Project Manager, verify device storage, then choose **MONOLITH** as a Kit Designer source. Any component without its corresponding stored sample uses the factory ROM fallback where implemented. The FM1's shared flash capacity limits total stored sample duration; the 13 slots do not guarantee a particular number of seconds.
-
-**Asset rights:** these 16 WAVs came from the supplied project assets. Their rights for public redistribution have **not** been independently established. Confirm permission before publishing the WAV files in a public GitHub repository.
-
-## Drum Editing and Sample Editing
-
-**DRUM EDIT** works with factory drum components and user samples. The inherited settings include tone-shaping and kit character controls; BLUE adds project-saved sample trim and envelope parameters.
-
-| User-sample parameter | Function |
+| User-sample control | Function |
 | :-- | :-- |
-| **START** | Start position, 0–99% |
-| **END** | End position, 1–100%; must be greater than START |
-| **ATTACK / DECAY / SUSTAIN / RELEASE** | Four envelope parameters, each 0–100 |
-| **GAIN** | Playback level |
-| **DRIVE** | Drive amount |
+| **START** | Playback start, 0–99% |
+| **END** | Playback end, 1–100%; later than START |
+| **ATTACK / DECAY / SUSTAIN / RELEASE** | Envelope stages, each 0–100 |
+| **GAIN** | Sample level |
+| **DRIVE** | Saturation |
 | **CHOKE** | Choke-group assignment |
 
-The native BD4S streamed-sample path seeks to the required prefetch block, starts at the trimmed position and ends with a short anti-click fade. The separate project-local µ-law sample path also supports trimming. The selected settings are serialized with the project's **BDR1 V29** data; they do **not** embed the original WAV into every project.
+For Storage V2 `BD4S` streamed samples, START/END use block-aware prefetch and an anti-click trim end. Project-local short µ-law samples also support trim. Editing these settings does **not** place copies of the original imported WAVs inside each project.
 
-## FM1 Controls
+## Mixing and Performance
 
-### Main navigation
+### Lane Mixer and Drum Mixer
 
-| Button / encoder | Main use in BLUE |
-| :-- | :-- |
-| **SEQ** | Open or return to the tracker; modifier for existing editing shortcuts |
-| **SELECT (rotary)** | Select a drum channel in the tracker |
-| **ALGORITHM** | Select pattern 01–48 in the tracker |
-| **K1** | Tracker row; kit assignment or component selection in relevant editors |
-| **K2** | Tracker column or parameter field |
-| **K3** | Edit a focused parameter or kit source |
-| **K4** | Tracker tempo; factory kit variation in DRUM EDIT when stopped |
-| **SEL (push)** | Confirm contextual actions; store a global USER KIT from Kit Designer |
-| **EDIT** | DRUM EDIT; press again for Kit Designer; press again to go back |
-| **GLO** | Regular lane mixer → component DRUM MIXER → tracker |
-| **FX** | Step effects and Punch-In performance pages |
-| **LFO** | Master effects |
-| **ARP** | Song Chains |
-| **PLAY/STOP** | Transport playback |
-| **REC** | Contextual note-entry or Punch-In recording |
-| **HOME / SAVE** | Projects and save operations |
+Pressing **GLO** cycles through **Lane Mixer → Drum Mixer → Tracker**.
 
-### Lane Mixer versus Drum Mixer
+- **Lane Mixer:** control the six drum lanes as channels, with their own volume, pan and mute/solo-related settings.
+- **Drum Mixer:** rotate **SELECT** to switch between **BEETLE**, **MONOLITH**, and **USER KIT 01–12**. **K1** chooses the component/pad, **K2** chooses a parameter, and **K3** adjusts it. Available columns include Gain, Pitch, Drive and Choke where supported. **SEL** saves eligible edits to a global User Kit. MONOLITH's 16 ROM components are represented separately from the U01–U13 global sample library.
 
-- **Lane Mixer:** press **GLO** for CH1–CH6 lane-level controls, including level, pan and mute/solo behavior.
-- **Drum Mixer:** press **GLO again** to open component-level controls for the factory drums and global user-sample components. **K1** chooses a component, **K2** chooses a field, and **K3** adjusts `GAIN`, `PITCH` (where supported), `DRIVE` or `CHOKE`.
-- Press **GLO** again to return to the tracker. Component edits affect the project's drum settings; save the project to keep them.
+### FX and Punch-In
 
-### Pattern and performance tools
+- **Short FX press, then release:** opens the FX menu on release.
+- **Hold FX and press keyboard keys:** activates momentary **Punch-In FX** without navigating away to the menu.
+- **Overlay behavior:** shows the last activated effect that is still held. Releasing that effect reveals the previously pressed effect if it remains active.
+- Punch-In FX, Song Mode, groove/dynamics editors, mute groups, snapshots and other retained BEETLE performance tools are available where implemented in native BLUE. Timing and physical key combinations still need hardware validation.
 
-BLUE retains BEETLE's pattern editing, step dynamics/groove, Song Chains, mixer, Punch-In FX, snapshots and mute-group code paths. Some inherited CH6-specific editing behavior is not yet generalized to every drum lane. The source and on-device screens are the authority for contextual shortcuts; the **V0.2 Web Prototype is not a V0.8 simulator**.
+## Projects, Storage and Compatibility
 
-## Projects, Backups and Compatibility
-
-- BLUE uses **12 project slots** with a separate **`BDR1`** project identity to prevent ordinary BEETLE `TRK1` projects from being treated as all-drum projects.
-- V0.8 **writes BDR1 V29**. The decoder has migration paths for older BLUE V26–V28 project data; dedicated V28 fixture coverage is still missing in the new V0.8 tests.
-- The current Project Manager uses encrypted **`.bdrum`** project backups; the global WAV library uses **`.beetlebank`**. Save both when working with custom samples.
-- **Global user kit presets (`BBK1`) are a third, separate storage category.** The current Manager cannot export them. A `.bdrum` or `.beetlebank` export is not a complete backup of BLUE's global kit presets.
-- Do not assume that ordinary **`.beetle` / `TRK1`** project files are directly interchangeable with **`.bdrum` / `BDR1`** files. Maintain backups before switching between BEETLE and BEETLE BLUE.
-- Storage V2 migration or provisioning is potentially destructive. Do not run it without a verified backup of all projects and sample data. Do not interrupt power during flash operations.
+- **Capacity:** 48 patterns, **12** device project slots and 64 Song Mode chain positions. This release does **not** add 64 patterns or 16 project slots, because safely doing so requires verified RAM, serialization and flash-layout changes.
+- **Current format:** `BDR1` project **schema V30**, including the six lane-kit settings. A V29 migration decoder is retained; preserve backups when upgrading.
+- **Backups:** `.bdrum` holds BLUE project data, whereas `.beetlebank` is for the optional global sample library. Neither fully backs up the separate `BBK1` global kit bank.
+- **Not interchangeable:** BLUE `BDR1` and the original BEETLE `TRK1` projects should not be treated as equivalent or imported by renaming a file extension.
+- **Shared flash:** projects and global user samples share device storage. Never overwrite, migrate, format or repair storage merely because a different firmware does not recognize its contents.
 
 ### Project Manager
 
-The current browser tool is [`web/BEETLE-BLUE-V0.8-Project-Manager.html`](web/BEETLE-BLUE-V0.8-Project-Manager.html). Its code is included in this source release; a publicly hosted BLUE-specific GitHub Pages URL has **not** been verified for V0.8. Host it over HTTPS in a compatible browser where required for USB-MIDI access, and confirm device identity before writing.
+The BLUE Project Manager (`BEETLE-BLUE-Project-Manager.html`) supports project slots and optional global U01–U13 sample operations where the firmware's protocol supports them. It is **not required to play the built-in MONOLITH ROM kit**. USB project/sample transfer and global-kit-bank backup have not been physically validated for this build. Storage migration and marker-repair features inherited from BEETLE may be restricted to avoid accidental loss of the BLUE kit bank.
 
-It supports the inherited project and global-sample workflows, including encrypted project backups and the U01–U13 sample bank. The tool is V29-aware, but it **does not read, export or restore BBK1 global user-kit presets**. Some inherited controls and labels may still use the original BEETLE wording.
+## Web Tools and UI Renders
 
-## USB-C Audio Recording (experimental)
+The V0.94 source archive includes the following standalone browser tools:
 
-The source retains the BEETLE USB Audio Class capture configuration: a stereo master path or **six separate mono stems at 44.1 kHz / 16-bit**, depending on the supported device configuration. This is **FM1 → computer audio**, not USB screen capture or computer-to-FM1 playback.
+| File | Purpose |
+| :-- | :-- |
+| [`WebInstaller.html`](WebInstaller.html) | USB-MIDI firmware installer with the V0.94 `.fwsc` embedded and verified by hash |
+| [`simulator.html`](simulator.html) | WebSimulator; MONOLITH preview uses audio generated by the native C ROM drum renderer |
+| [`BEETLE-BLUE-Project-Manager.html`](BEETLE-BLUE-Project-Manager.html) | Backup, restore and optional user-sample management |
+| [`BEETLE-BLUE-Manager.html`](BEETLE-BLUE-Manager.html) | All-in-One Manager with the matching simulator, installer and Project Manager |
 
-Six-stem USB audio, host enumeration, clock stability, channel routing and long recordings are **not validated on physical FM1 hardware** for BLUE V0.8. Do not rely on it for irreplaceable recording sessions. No new USB-audio feature is claimed by the V0.8 kit update.
+The simulator reproduces key workflows but **does not emulate physical FM1 DMA deadlines or analogue circuitry**. WebInstaller firmware/hash checks validate package identity and structure; they do not guarantee a successful or safe physical OTA installation.
 
-## Installation and Safety
+`UI-CAPTURES-NATIVE-1920/` includes **16** reference captures produced using native C LCD drawing code with seeded interface states, including the tracker and Drum Mixer. They are captured at **240×240** and enlarged **8× with nearest-neighbor** to **1920×1920**. They are **not** photographs of the FM1 LCD, and not an exhaustive capture of every UI state.
 
-1. Keep an independently verified backup of projects (`.bdrum`) and original global WAVs (`.beetlebank`); record any important global kit parameters separately.
-2. Verify you have a **working independent FM1 firmware recovery procedure** before attempting any experimental flash.
-3. Review [V0.8 software validation](validation/V0.8-RESULTS.md) and check the `.fwsc` SHA-256 if using the supplied file.
-4. Treat the provided firmware as **experimental**, not a safe one-click upgrade. Avoid using headphones, powered monitors or amplifiers for unmeasured audio-output testing.
-5. Do not erase or reformat shared Storage V2 data merely because an older firmware cannot interpret BLUE's `BBK1` or `BDR1` data.
+> **GitHub Pages note:** the links above assume the corresponding HTML files are published in the repository root. `BEETLE-BLUE.png` must also exist alongside this README if the top logo is to render correctly; that logo file is not included in the V0.94 source archive.
 
-The archive contains **no validated V0.8 WebInstaller**. The included [`web/BEETLE-DRUM-V0.2-WebPrototype.html`](web/BEETLE-DRUM-V0.2-WebPrototype.html) is an **older prototype**, not a firmware-accurate V0.8 WebSimulator. The [UI gallery](UI-SCREENS-1920x1920/) comprises nearest-neighbor enlarged **reference/mockup PNGs**, not captures from a physical FM1 LCD.
+## USB-C Audio Recording (Experimental)
+
+BLUE retains the inherited BEETLE USB Audio Class paths for stereo master audio and **six mono stems at 44.1 kHz / 16-bit**, subject to the supported device configuration. This captures **FM1 → computer** audio. It does not provide USB screen recording, and it is not computer-to-FM1 audio playback.
+
+USB enumeration, sustained recording, sync, channel routing and stability have **not been validated on a physical FM1** for V0.94. Do not rely on an experimental build for irreplaceable recordings.
+
+## Installation, Safety and Validation
+
+1. Export and separately verify all important `.bdrum` projects and optional global sample libraries. Record global User Kit settings because `BBK1` export is not provided.
+2. Confirm an **independent, working FM1 recovery path** before installing the experimental firmware.
+3. Review [`validation/V0.94-RESULTS.md`](validation/V0.94-RESULTS.md) and verify the `.fwsc` hash if distributing the package.
+4. Start hardware tests conservatively. Avoid headphones and powered monitoring at unmeasured output levels; use suitable level-limited test equipment.
+5. Do not interrupt a flash write or trigger storage provisioning/formatting without an established backup and recovery procedure.
+
+### Software validation reported for V0.94
+
+| Check | Result |
+| :-- | :-- |
+| JieLi native production-options build | PASS |
+| Read-only build / write-symbol audit | PASS |
+| 14 BEETLE ROM components + 16 MONOLITH procedural patches | Host tests PASS |
+| 3,000 repeated kick triggers and 4,338-event regression | Host tests PASS |
+| PCM buffer clearing and project V29→V30 migration checks | PASS |
+| Firmware payload / CRC / header / OTA-loader comparison | PASS |
+| Webtool JS syntax, embedded firmware and matching tool versions | PASS |
+| Actual FM1 flashing, DMA DEADLINE, analogue peaks, USB/OTA recovery | **NOT TESTED** |
+
+The V0.94 native app is **522,876 bytes**, with **58,688 bytes** of stated application-space headroom (of 581,564 bytes). The `.fwsc` is **610,086 bytes**.
+
+**V0.94 `.fwsc` SHA-256:** `caa1ef8a0b4ff7e34a6e9451f31bcc38183587d4f7b75aa4bbe347f9d31271ae`
+
+Those figures describe the software build, **not** CPU headroom, safe sound pressure, successful hardware flashing or proven absence of a DMA failure.
 
 ## Development and Source Layout
 
-| Location | Contents |
+| Directory / file | Content |
 | :-- | :-- |
-| `firmware/fm1-native/` | Native FM1 tracker, drum/DSP, UI, project, Storage V2 and USB source |
-| `assets/MONOLITH-Kit/` | Sixteen source WAVs and 13-slot import map (check redistribution rights) |
-| `web/` | V0.8 Project Manager and historical V0.2 web prototype |
-| `tests/` | Native host/unit/regression test sources and scripts |
-| `validation/V0.8-RESULTS.md` | V0.8 software-verification results and known limitations |
-| `UI-SCREENS-1920x1920/` | 42 UI reference images and two boot-frame PNGs, enlarged from 240 × 240 |
-| `docs/` | Credits, licence information and the preserved upstream BEETLE documentation |
-| `CHANGELOG.md` | BLUE release-specific changes and validation limitations |
+| `firmware/fm1-native/` | Native sequencer, BEETLE/MONOLITH drum engines, LCD, storage, USB and OTA code |
+| `assets/MONOLITH-Kit/` | Original 16 reference WAVs and historical mapping; not required for ROM playback |
+| `web/` | Web tools, including historical references |
+| `tests/` | Native host tests and software regression scripts |
+| `validation/V0.94-RESULTS.md` | V0.94 build, host tests, checksums and hardware limitations |
+| `UI-CAPTURES-NATIVE-1920/` | 16 native-code-rendered screen states, enlarged with nearest-neighbor |
+| `docs/` | Licensing, source attributions and archived development references |
+| `CHANGELOG.md` | Version-by-version changes |
 
 ### Build from Source
 
-Use the separately obtained compatible **JieLi Linux toolchain**. The compiler/toolchain is not bundled in this source release.
+Obtain a compatible JieLi Linux toolchain separately. The toolchain is **not** part of the release archive.
 
 ```bash
 export JIELI_TOOLCHAIN=/path/to/jieli-linux-toolchains-20260730.1
 python firmware/fm1-native/build.py --drum-edition --beetle-storage-lab --beetle-v2 --updater --usb-audio
-python tools/package_beetle_blue_v08.py
+python tools/package_beetle_blue_v094.py
+python tools/render_blue_v094.py
+python tools/generate_blue_v094_web.py
 ```
 
-The distributed V0.8 native application is **523,420 bytes** and the experimental `.fwsc` container is **610,086 bytes**, as recorded in [`validation/V0.8-RESULTS.md`](validation/V0.8-RESULTS.md). These figures describe a successful software build, **not** available CPU time, physical safety or installed-device behavior.
+See the [`CHANGELOG.md`](CHANGELOG.md) for release history and [`validation/V0.94-RESULTS.md`](validation/V0.94-RESULTS.md) for the original software test evidence. The README is an operating and technical guide, not a substitute for hardware verification.
 
-The [CHANGELOG](CHANGELOG.md) is the release log. This README is the operating and technical guide, not a running list of version-by-version fixes.
+## Reporting Issues
 
-## Support
-
-When reporting a bug, include the BLUE firmware version, exact FM1 screen and controls used, steps to reproduce, whether Storage V2 is active, and whether user WAVs or global kit presets were involved. Keep personal projects and full flash dumps private unless you have deliberately removed sensitive content. Separate confirmed hardware observations from simulator or host-test observations.
+When reporting a defect, include the firmware version, the on-device page, the kit and component, whether playback was stopped or running, the exact control sequence (especially repeated keyboard hits), and whether global U-samples or User Kits were involved. For `DMA DEADLINE / AUDIO STOP` failures, include how many rapid kick triggers were pressed and whether the issue also occurs with the plain BEETLE kit. Keep private projects or complete flash dumps private unless intentionally sanitized.
 
 ---
 
-## Credits and Licences
+## Credits and Licenses
 
-**BEETLE BLUE** is developed by **SikkenWorks (Joppe Sikken)** as a drum-focused derivative of BEETLE. It is **not a clean-room firmware** and retains upstream source and notices. The distributed native firmware is under **GNU GPL-3.0-only**. See [`LICENSE`](LICENSE), [`LICENSES/`](LICENSES/) and [`docs/CREDITS-AND-LICENSES.md`](docs/CREDITS-AND-LICENSES.md).
+**BEETLE BLUE** is a SikkenWorks drum-focused derivative of **BEETLE**, based on the BEETLE V1.7.14 development line. It is **not** a clean-room reimplementation. The native firmware is distributed under **GNU GPL-3.0-only**. Keep the associated `LICENSE`, `LICENSES/`, source-level notices and third-party credits.
 
 | Project / contributor | Attribution |
 | :-- | :-- |
-| **[BEETLE](https://github.com/SikkenWorks/BEETLE)** · SikkenWorks | Source base for the six-lane tracker, sequencer, performance tools, Storage V2, DSP, USB and OTA integration. V0.8 BLUE is based on the BEETLE V1.7.14 lineage. |
-| **[Felucca](https://github.com/hugelton/Felucca)** · Leo Kuroshita / Hügelton Instruments | Original FM1 hardware abstractions, LCD/input, startup and audio/OTA foundations, GPL-3.0-only. See [`LICENSES/FELUCCA-LICENSING.txt`](LICENSES/FELUCCA-LICENSING.txt). |
-| **[ETCH](https://github.com/SikkenWorks/ETCH)** · SikkenWorks | Earlier FM1 firmware and part of the protected firmware/OTA packaging lineage. |
-| **JieLi Technology** | FM1 target-chip and toolchain manufacturer; applicable third-party notices remain in effect. |
+| **[BEETLE](https://github.com/SikkenWorks/BEETLE)** · SikkenWorks | Original FM1 tracker, sequencing, project storage, performance, DSP, USB and OTA foundation |
+| **[Felucca](https://github.com/hugelton/Felucca)** · Leo Kuroshita / Hügelton Instruments | FM1 hardware abstraction, LCD/input, startup, audio and OTA foundation |
+| **[ETCH](https://github.com/SikkenWorks/ETCH)** · SikkenWorks | Earlier FM1 firmware and part of the protected firmware/OTA packaging lineage |
+| **JieLi Technology** | Target-chip and toolchain manufacturer |
 
-The bundled MONOLITH WAV files have **unverified third-party redistribution rights** and should only be published where the rights holder has authorized distribution. Preserve all applicable source-level notices and original attributions. Distribution of firmware binaries should be accompanied by the corresponding source required by the GPL.
+The visible on-device BLUE credits no longer include a reSID label. This does **not** authorize removal of any copyright or license notices that are legally required for inherited source files. The original MONOLITH WAVs were user-supplied and their public redistribution rights have **not** been independently confirmed. Check those rights before publishing the WAV assets.
 
 <p align="center"><strong>BEETLE BLUE · SikkenWorks · Born out of passion.</strong></p>
