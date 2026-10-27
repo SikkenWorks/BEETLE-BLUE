@@ -245,8 +245,6 @@ When reporting a bug, include the BLUE firmware version, exact FM1 screen and co
 | **[Felucca](https://github.com/hugelton/Felucca)** · Leo Kuroshita / Hügelton Instruments | Original FM1 hardware abstractions, LCD/input, startup and audio/OTA foundations, GPL-3.0-only. See [`LICENSES/FELUCCA-LICENSING.txt`](LICENSES/FELUCCA-LICENSING.txt). |
 | **[ETCH](https://github.com/SikkenWorks/ETCH)** · SikkenWorks | Earlier FM1 firmware and part of the protected firmware/OTA packaging lineage. |
 | **JieLi Technology** | FM1 target-chip and toolchain manufacturer; applicable third-party notices remain in effect. |
-| **reSID** · Dag Lem | SID-emulator technical attribution preserved from upstream BEETLE. BLUE does not claim to embed the original reSID library. |
-| **Nes_Snd_Emu** · Shay Green (blargg); James Athey | NES audio technical-reference attribution preserved from upstream. The original upstream C++ emulator is not claimed to be part of BLUE. |
 
 The bundled MONOLITH WAV files have **unverified third-party redistribution rights** and should only be published where the rights holder has authorized distribution. Preserve all applicable source-level notices and original attributions. Distribution of firmware binaries should be accompanied by the corresponding source required by the GPL.
 
