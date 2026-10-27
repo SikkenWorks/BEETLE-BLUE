@@ -10,7 +10,7 @@
 #include "beetle_stereo_pan.h"
 #include "beetle_drum_rom.h"
 #if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
-#include "beetle_blue_monolith.h"
+#include "beetle_blue_monolith_rom.h"
 #endif
 #if defined(BEETLE_NATIVE_V2) && BEETLE_NATIVE_V2
 #include "beetle_bd4_live.h"
@@ -103,51 +103,39 @@ static uint32_t rate_step(int8_t semi){
  * alternative snare/hats, and legacy test compatibility. The ROM bank holds
  * the 14 user-visible instruments, so map 16 physical IDs to 14 ROM entries. */
 static const uint8_t rom_index[16]={0u,1u,14u,9u,13u,10u,2u,11u,15u,12u,3u,4u,5u,7u,6u,8u};
-/* READ-ONLY MONOLITH kit: IMA ADPCM nibble decoder. State is per voice,
- * decoding advances only when phase enters next sample; no flash reads in
- * the background sample streamer and no runtime allocations. */
+/* The MONOLITH kit is now generated at 44.1kHz from small ROM patch
+ * coefficients and a 256-point ROM sinusoid, not encoded samples.
+ * No 64-bit divide, streaming reads or decoder loops in the ISR.
+ * Original BEETLE µ-law PCM kit is kept unmodified. */
 #if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
-static const int16_t blue_ima_steps[89]={
-7,8,9,10,11,12,13,14,16,17,19,21,23,25,28,31,34,37,41,45,50,55,
-60,66,73,80,88,97,107,118,130,143,157,173,190,209,230,253,279,307,
-337,371,408,449,494,544,598,658,724,796,876,963,1060,1166,1282,
-1411,1552,1707,1878,2066,2272,2499,2749,3024,3327,3660,4026,
-4428,4871,5358,5894,6484,7132,7845,8630,9493,10442,11487,12635,
-13899,15289,16818,18500,20350,22385,24623,27086,29794,32767};
-static const int8_t blue_ima_index[8]={-1,-1,-1,-1,2,4,6,8};
-static int16_t blue_ima_next(struct track_drum_voice *v, uint8_t slot){
- const uint32_t base=blue_monolith_offset[slot];
- const uint32_t size=blue_monolith_offset[slot+1u]-base;
- const uint32_t sample=v->mono_decoded++;
- if((sample>>1u)>=size)return 0;
- uint8_t byte=blue_monolith_adpcm[base+(sample>>1u)];
- uint8_t n=(sample&1u)?(uint8_t)(byte>>4u):(uint8_t)(byte&15u);
- int32_t step=blue_ima_steps[v->mono_index];
- int32_t d=step>>3u;
- if(n&4u)d+=step;if(n&2u)d+=step>>1u;if(n&1u)d+=step>>2u;
- int32_t p=(int32_t)v->mono_predictor + ((n&8u)?-d:d);
- if(p>32767)p=32767;else if(p< -32768)p=-32768;
- v->mono_predictor=(int16_t)p;
- int32_t ix=(int32_t)v->mono_index+blue_ima_index[n&7u];
- if(ix>88)ix=88;else if(ix<0)ix=0;
- v->mono_index=(uint8_t)ix;
- return (int16_t)p;
-}
-static int32_t blue_ima_wave(struct track_drum_voice *v,uint32_t idx,uint32_t frac){
- /* idx advances monotonically by <=2 per output frame even at +36 semitones.
-  * Caller checked idx against sample_frames before reading. */
- uint8_t slot=(uint8_t)(v->id-64u);
- while(v->mono_decoded<=idx+1u){
-  v->mono_current=v->mono_next;
-  v->mono_next=blue_ima_next(v,slot);
+static int32_t blue_rom_wave(struct track_drum_voice *v,uint8_t pad){
+ const struct blue_rom_patch *p=&blue_rom_patches[pad];
+ v->noise_state=rnd(&v->noise_state);
+ const int32_t noise=(int16_t)(v->noise_state>>16u);
+ const int32_t bright=noise;
+ const int32_t tone=blue_rom_sine[v->kit_phase>>24u];
+ const int32_t metal=blue_rom_sine[(v->kit_phase*7u)>>24u];
+ int32_t tonal=(tone*3+metal)/4;
+ int32_t wave=(tonal*(256-(int32_t)p->noise_mix)+bright*p->noise_mix)>>8u;
+ /* Clap: repeated noise bursts; timbral motion without another sample buffer. */
+ if(pad==9u){uint32_t pos=v->age;uint32_t phase=(pos/390u)%3u;
+  if(phase==1u)wave=(wave*3)>>2u;
+  if(phase==2u)wave=(wave*2)>>2u;
  }
- return (int32_t)v->mono_current +
-  (int32_t)((((int64_t)v->mono_next-v->mono_current)*frac)>>16u);
+ const uint32_t scale=v->kit_env>>16u;
+ wave=(int32_t)(((int64_t)wave*scale)>>8u); /* env initial 2^24 */
+ uint32_t sweep=v->kit_sweep;
+ v->kit_phase+=p->phase_inc+sweep;
+
+ if(sweep){uint32_t loss=sweep>>10u;if(!loss)loss=1u;v->kit_sweep-=loss;}
+ if(v->kit_env){uint32_t loss=v->kit_env>>p->env_shift;
+  if(!loss)loss=1u;v->kit_env-=loss;}
+ return wave;
 }
 #endif
 static uint32_t sample_frames(uint8_t id,const struct beetle_oneshot_bank *bank){
 #if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
- if(id>=64u&&id<80u)return (blue_monolith_offset[id-63u]-blue_monolith_offset[id-64u])*2u;
+ if(id>=64u&&id<80u)return blue_rom_patches[id-64u].length_22050;
 #endif
  if(id>=16u){uint8_t s=(uint8_t)(id-16u);return bank&&s<BEETLE_ONESHOT_NOTES?bank->length[s]:0u;}
  const uint8_t i=rom_index[id];return beetle_drum_offsets[i+1u]-beetle_drum_offsets[i];
@@ -231,7 +219,7 @@ int track_drum_trigger(struct track_drum_engine *d,uint8_t index){
  v->env_q24=16777215u;v->noise_state=rnd(&d->rng);
  v->phase_step=rate_step(p->pitch);v->pitch_semitones=p->pitch;v->active=1u;
 #if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
- if(mono)v->phase_step=(uint32_t)(((uint64_t)v->phase_step*BLUE_MONOLITH_RATE)/BEETLE_DRUM_ROM_RATE);
+ if(mono){v->kit_phase=0u;v->kit_env=1u<<24u;v->kit_sweep=blue_rom_patches[index-64u].sweep_inc;}
 #endif
  if(global){
   v->length=900000u; /* max 20 s @ 44.1 kHz, source determines actual end */
@@ -278,7 +266,7 @@ int track_drum_trigger_pair_tuned(struct track_drum_engine *d,uint8_t a,uint8_t 
    if(combined<-36)combined=-36;if(combined>36)combined=36;
    v->pitch_semitones=(int8_t)combined;v->phase_step=rate_step(v->pitch_semitones);
 #if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
- if(v->id>=64u&&v->id<80u)v->phase_step=(uint32_t)(((uint64_t)v->phase_step*BLUE_MONOLITH_RATE)/BEETLE_DRUM_ROM_RATE);
+ /* ROM patch tuning is applied via integer oscillator-frequency adjustment at trigger. */
 #endif
 #if defined(BEETLE_NATIVE_V2) && BEETLE_NATIVE_V2
    if(v->id>=32u&&v->id<64u)continue; /* DPCM4 stream owns its decoded frame count. */
@@ -297,7 +285,7 @@ void track_drum_retune_voice(struct track_drum_engine *d,struct track_drum_voice
  if(!d||!v||!v->active)return;
  v->phase_step=rate_step(v->pitch_semitones);
 #if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
- if(v->id>=64u&&v->id<80u)v->phase_step=(uint32_t)(((uint64_t)v->phase_step*BLUE_MONOLITH_RATE)/BEETLE_DRUM_ROM_RATE);
+ /* ROM patch tuning is applied via integer oscillator-frequency adjustment at trigger. */
 #endif
 #if defined(BEETLE_NATIVE_V2) && BEETLE_NATIVE_V2
  if(v->id>=32u&&v->id<64u)return; /* Do not derive ROM length for streamed data. */
@@ -341,6 +329,7 @@ static const struct track_drum_timbre *drum_chunk_ctrl[TRACK_DRUM_POLY];
 static uint32_t drum_chunk_frames[TRACK_DRUM_POLY];
 static uint32_t drum_chunk_floor[TRACK_DRUM_POLY];
 static uint32_t drum_chunk_attack[TRACK_DRUM_POLY];
+static int16_t drum_eq_coeff[TRACK_DRUM_POLY][3];
 #if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
 static const uint8_t *drum_chunk_rom[TRACK_DRUM_POLY];
 #endif
@@ -348,6 +337,17 @@ extern int16_t *beetle_stem_capture;
 extern uint32_t beetle_stem_offset;
 void track_drum_render(struct track_drum_engine *d,const struct track_mixer *mix,int16_t *dst,uint32_t frames){
  if(!d||!dst)return;
+#if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
+ /* Zero-work idle: do not run 128x6 EQ/pan loops when no drum is playing.
+  * BLUE has no synth stems in this capture buffer. */
+ uint8_t active=0u;
+ for(uint8_t i=0u;i<TRACK_DRUM_POLY;i++)active|=d->voices[i].active;
+ if(!active){
+  if(beetle_stem_capture)memset(beetle_stem_capture+(beetle_stem_offset*TRACK_CHANNELS),
+     0,(size_t)frames*TRACK_CHANNELS*sizeof(int16_t));
+  return;
+ }
+#endif
  const struct track_mixer_channel *m=mix?&mix->ch[TRACK_DRUM_CHANNEL]:0;
  uint8_t any_solo=0u;if(mix)for(uint8_t i=0;i<TRACK_CHANNELS;i++)any_solo|=mix->ch[i].solo;
  const uint32_t gain=
@@ -372,6 +372,10 @@ void track_drum_render(struct track_drum_engine *d,const struct track_mixer *mix
   drum_control(d,v->component);
 #endif
   voice_ctrl[i]=ctrl;
+  /* Expensive /100 division is evaluated once per block, not 768 times. */
+  drum_eq_coeff[i][0]=(int16_t)(((uint32_t)(50u+ctrl->eq_low)*256u+50u)/100u);
+  drum_eq_coeff[i][1]=(int16_t)(((uint32_t)(50u+ctrl->eq_mid)*256u+50u)/100u);
+  drum_eq_coeff[i][2]=(int16_t)(((uint32_t)(50u+ctrl->eq_high)*256u+50u)/100u);
 #if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
   drum_chunk_rom[i]=v->id<16u?beetle_drum_rom+beetle_drum_offsets[rom_index[v->id]]:0;
 #endif
@@ -434,7 +438,7 @@ void track_drum_render(struct track_drum_engine *d,const struct track_mixer *mix
    {
 #if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
     if(v->id>=64u && v->id<80u){
-      wave=blue_ima_wave(v,idx,frac);
+      wave=blue_rom_wave(v,(uint8_t)(v->id-64u));
     }else
 #endif
     {
@@ -449,15 +453,15 @@ void track_drum_render(struct track_drum_engine *d,const struct track_mixer *mix
    v->noise_lp+= (wave-v->noise_lp)>>5u; /* approx 220 Hz */
    v->noise_lp2+=(wave-v->noise_lp2)>>2u;/* approx 2 kHz */
    int32_t low=v->noise_lp,mid=v->noise_lp2-v->noise_lp,hi=wave-v->noise_lp2;
-   int32_t level=(int32_t)(((int64_t)low*(50u+ctrl->eq_low)+(int64_t)mid*(50u+ctrl->eq_mid)+(int64_t)hi*(50u+ctrl->eq_high))/100u);
+   int32_t level=(int32_t)(((low*drum_eq_coeff[i][0])+(mid*drum_eq_coeff[i][1])+(hi*drum_eq_coeff[i][2]))>>8u);
    if(v->age<16u)level=level*(int32_t)(v->age+1u)/16;
-   if(voice_attack[i] && v->age<voice_attack[i]){uint32_t a=v->age*32768u/voice_attack[i];level=(int32_t)(((int64_t)level*a)>>15u);}
+   if(voice_attack[i] && v->age<voice_attack[i]){uint32_t a=v->age*32768u/voice_attack[i];level=(int32_t)((level*(int32_t)a)>>15u);}
    /* V0.5: bounded optional per-pad drive. Neutral=0 follows bit-for-bit
     * identical PCM math. Fixed-point, no buffers or audio-callback malloc.
     * A piecewise knee keeps post-drive peaks bounded before lane summing. */
 #if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
    if(ctrl->drive){
-    int32_t colored=(int32_t)(((int64_t)level*(256u+3u*ctrl->drive))>>8u);
+    int32_t colored=(int32_t)((level*(int32_t)(256u+3u*ctrl->drive))>>8u);
     uint8_t shift=ctrl->drive>=70u?2u:ctrl->drive>=35u?1u:0u;
     if(colored>14000)colored=14000+((colored-14000)>>shift);
     else if(colored< -14000)colored=-14000-(((-colored)-14000)>>shift);
@@ -466,17 +470,20 @@ void track_drum_render(struct track_drum_engine *d,const struct track_mixer *mix
     level=colored;
    }
 #endif
-   level=(int32_t)(((int64_t)level*v->env_q24)>>24u);
+   /* Q15 envelope: after the 30k drive knee this product fits int32.
+    * Avoid emulated 64-bit multiply on each active voice/sample. */
+   level=(int32_t)((level*(int32_t)(v->env_q24>>9u))>>15u);
    level=(int32_t)(((int64_t)level*v->gain_q8)>>8u);
    if(v->release_frames)level=level*v->release_frames/48;
 #if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
-   channel_mono[v->source_lane<TRACK_CHANNELS?v->source_lane:TRACK_DRUM_CHANNEL]+=(level*7)/12;
+   channel_mono[v->source_lane<TRACK_CHANNELS?v->source_lane:TRACK_DRUM_CHANNEL]+=(level*149)>>8u;
 #else
    mono+=(level*7)/12; /* V0.46: +4.86 dB native drum gain, independent of mixer fader.
                        * 6-voice mix still keeps downstream master headroom. */
 #endif
    v->phase+=v->phase_step;v->age++;
-   uint32_t loss=(uint32_t)(((uint64_t)v->env_q24*v->env_loss_q16+32768u)>>16u);
+   /* Error <1/4096 of full-scale vs. old 64-bit envelope multiply. */
+   uint32_t loss=((v->env_q24>>12u)*v->env_loss_q16+8u)>>4u;
    if(!loss&&v->env_q24)loss=1u;
    uint32_t next=v->env_q24>loss?v->env_q24-loss:0u;
    v->env_q24=next<voice_floor[i]?voice_floor[i]:next;

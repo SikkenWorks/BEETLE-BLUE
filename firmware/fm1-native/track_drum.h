@@ -17,11 +17,9 @@ struct track_drum_voice {
  uint16_t gain_q8,env_loss_q16;
  uint8_t id,active,release_frames,component;
 #if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
- /* Playback state for 16 embedded 8kHz MONOLITH IMA-ADPCM4 samples.
-  * Only used for v->id 64..79; constant bounded decode, no malloc. */
- uint32_t mono_decoded;
- int16_t mono_predictor,mono_current,mono_next;
- uint8_t mono_index;
+ /* Fully procedural MONOLITH ROM kit: fixed-cost, 44.1 kHz patches.
+  * No ADPCM/stream decoder and no allocation in the audio interrupt. */
+ uint32_t kit_phase,kit_sweep,kit_env;
 #endif
  uint8_t source_lane; /* V0.4: original CH6 or one of the five new drum lanes */
 #if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION

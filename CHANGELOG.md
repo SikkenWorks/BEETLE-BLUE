@@ -1,3 +1,15 @@
+# BEETLE BLUE CHANGELOG
+
+## V0.94 — Audio PCM initialization fix and MONOLITH procedural ROM kit (EXPERIMENTAL)
+
+- Fixed the missing `native_stereo` zero-initialization introduced when BLUE disabled synth render, preventing stale PCM from being re-added by the drum mixer every ALNK0 block.
+- MONOLITH: replaced the built-in 50,800-byte, 8 kHz ADPCM bank with 16 fixed-patch 44.1 kHz ROM drum synthesis models. BEETLE original 14-pad PCM ROM remains unchanged.
+- Optimized inactive-drum render, precomputed EQ coefficient gains per block, and reduced repeated wide-integer operations in the per-sample drum loop.
+- Kept BDR1 V30 project storage, BBK1 global kits, 48 patterns, 12 project slots, user samples and six drum lanes.
+- Refreshed WebSimulator using 16 previews rendered by the real C drum engine; WebInstaller packages exact rebuilt V0.94 `.fwsc`; all-in-one embeds matching tools.
+- Added 16 source-derived 1920x1920 LCD renders including tracker, nearest-neighbor 8x.
+- FM1 actual flashing, DMA deadlines, acoustic quality and output peak safety **NOT physically verified**.
+
 # BEETLE BLUE Changelog
 
 ## V0.93 — MONOLITH built directly into firmware

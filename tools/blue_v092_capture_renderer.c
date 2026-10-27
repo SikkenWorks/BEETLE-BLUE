@@ -115,7 +115,7 @@ static void blue_drum_component_mixer_screen(void){
  /* SELECT chooses a kit source, K1 the component inside that kit. Global
   * USER KIT values come directly from BBK1, never from a copy of the lane mix. */
  track_pix_text("KIT",6u,50u,TRACK_PINK);
- if(blue_drum_mix_kit==0u)track_pix_text("DEFAULT / ROM",45u,50u,TRACK_BRIGHT);
+ if(blue_drum_mix_kit==0u)track_pix_text("BEETLE",45u,50u,TRACK_BRIGHT);
  else if(blue_drum_mix_kit==1u)track_pix_text("MONOLITH / SAMPLES",45u,50u,TRACK_BRIGHT);
  else{
   char kit[16]="USER KIT 01";
@@ -212,7 +212,7 @@ if(track_page==42u){
    char num[12]="INST ";track_fmt_int(num+5u,i+1u);
    track_pix_text(num,12u,y,blue_kit_edit_slot==i?TRACK_PINK:TRACK_BRIGHT);
    uint8_t src=blue_kit_palette[i];
-   if(src==0u)track_pix_text("BEETLE ROM",105u,y,TRACK_WHITE);
+   if(src==0u)track_pix_text("BEETLE",105u,y,TRACK_WHITE);
    else if(src==1u)track_pix_text("MONOLITH",105u,y,TRACK_WHITE);
    else {char n[12]="USER KIT ";track_fmt_int(n+9u,src-1u);track_pix_text(n,105u,y,TRACK_WHITE);}
   }
@@ -268,7 +268,7 @@ static void blue_lane_kit_overlay_draw(void){
  char title[16]="LANE 1 KIT";title[5]=(char)('1'+blue_lane_overlay_lane);
  track_pix_center(title,120u,90u,TRACK_PINK);
  uint8_t src=blue_lane_overlay_source;
- if(src==0u)track_pix_center("DEFAULT / BEETLE ROM",120u,115u,TRACK_BRIGHT);
+ if(src==0u)track_pix_center("BEETLE",120u,115u,TRACK_BRIGHT);
  else if(src==1u)track_pix_center("MONOLITH SAMPLE KIT",120u,115u,TRACK_BRIGHT);
  else {char msg[18]="USER KIT 01";msg[9]=(char)('0'+(src-1u)/10u);msg[10]=(char)('0'+(src-1u)%10u);track_pix_center(msg,120u,115u,TRACK_BRIGHT);}
  track_pix_center("SEQ + SELECT",120u,144u,TRACK_PINK);

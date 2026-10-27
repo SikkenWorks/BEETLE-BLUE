@@ -1,1 +1,1 @@
-BEETLE BLUE V0.93: firmware built and `.fwsc` packaged offline; 16 MONOLITH one-shots embedded as 8 kHz IMA ADPCM4; 8,656 bytes native app headroom. Software-level tests and static package integrity passed. NO PHYSICAL FM1 FLASH, DMA, OUTPUT LEVEL OR USB RECOVERY VALIDATION. Previous rapid double-kick DMA DEADLINE issue remains unverified.
+BEETLE BLUE V0.94 · Experimental · Native build and host tests passed; hardware DMA/flash/USB/analogue safety not validated. See validation/V0.94-RESULTS.md.
