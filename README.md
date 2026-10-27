@@ -9,10 +9,10 @@
 </p>
 
 <p align="center">
-  <a href="https://sikkenworks.github.io/BEETLE-BLUE/WebInstaller.html"><img src="https://img.shields.io/badge/▲_INSTALL_BEETLE-000000?style=for-the-badge" alt="Install BEETLE"></a>
-  <a href="https://sikkenworks.github.io/BEETLE-BLUE/simulator.html"><img src="https://img.shields.io/badge/▶_WEB_SIMULATOR-000000?style=for-the-badge" alt="Open BEETLE Web Simulator"></a>
-  <a href="https://sikkenworks.github.io/BEETLE-BLUE/BEETLE-BLUE-Project-Manager.html"><img src="https://img.shields.io/badge/▶_PROJECT_MANAGER-000000?style=for-the-badge" alt="Open BEETLE Project Manager"></a>
-  <a href="https://sikkenworks.github.io/BEETLE-BLUE/BEETLE-BLUE-MANAGER.html"><img src="https://img.shields.io/badge/▶_ALL--IN--ONE_MANAGER-000000?style=for-the-badge" alt="BEETLE All-in-One Manager"></a>
+  <a href="https://sikkenworks.github.io/BEETLE-BLUE/WebInstaller.html"><img src="https://img.shields.io/badge/▲_INSTALL_BEETLE-000000?style=for-the-badge" alt="Install BLUE"></a>
+  <a href="https://sikkenworks.github.io/BEETLE-BLUE/simulator.html"><img src="https://img.shields.io/badge/▶_WEB_SIMULATOR-000000?style=for-the-badge" alt="Open BLUE Web Simulator"></a>
+  <a href="https://sikkenworks.github.io/BEETLE-BLUE/BEETLE-BLUE-Project-Manager.html"><img src="https://img.shields.io/badge/▶_PROJECT_MANAGER-000000?style=for-the-badge" alt="Open BLUE Project Manager"></a>
+  <a href="https://sikkenworks.github.io/BEETLE-BLUE/BEETLE-BLUE-MANAGER.html"><img src="https://img.shields.io/badge/▶_ALL--IN--ONE_MANAGER-000000?style=for-the-badge" alt="BLUE All-in-One Manager"></a>
   <a href="https://thefirmwarehub.com/?q=sikkenworks"><img src="https://img.shields.io/badge/▶_THE_FIRMWARE_HUB-000000?style=for-the-badge" alt="The Firmware Hub"></a>
 </p>
 
