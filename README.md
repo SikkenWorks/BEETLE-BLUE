@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="BEETLE-BLUE.png" alt="BEETLE BLUE pixel-art boot image" width="240">
+  <img src="BEETLE-BLUE.png" alt="BEETLE BLUE pixel-art boot image" width="400">
 </p>
 
 <h1 align="center">BEETLE BLUE</h1>
