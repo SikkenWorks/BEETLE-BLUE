@@ -1,3 +1,11 @@
+## BEETLE BLUE V1.0 RC2 — safer project save, V2 orphan cleanup and exact error reasons
+
+- Distinguishes **PROJECT DATA TOO LARGE** (BDR1 buffer), **PROJECT PACK TOO LARGE** (12-KiB flash record) and **FLASH SPACE LOW** (physical page/guard capacity). Empty slots do not bypass per-project bounds.
+- On confirmed Storage V2 physical capacity failure, attempts a CRC/A/B-audited orphan-sector cleanup, then retries exactly once. Does **not** erase referenced projects/samples, reformat, drop data or change the BDR1 V31 schema.
+- Invalid BDR1 input is no longer mislabeled as an ordinary storage-capacity error.
+- Native writable and read-only builds, V2 writer/reader, power-loss, Song Chain and project format regressions passed in software. Hardware, DMA stress, OTA/recovery remain unverified.
+- This is **not** an unlimited-storage fix. A project over the 12-KiB serialization limit still cannot be saved on the FM1; no save success is falsely reported.
+
 # BEETLE BLUE CHANGELOG
 
 ## V1.0.0 RC1 — Setlist HOME fix, non-destructive Song Chain insertion, safety audit

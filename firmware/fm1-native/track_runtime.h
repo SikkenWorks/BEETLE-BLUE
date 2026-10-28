@@ -239,6 +239,10 @@ static void track_reverse_open(void){
 }
 /* V0.81: boot-only chooser, save origin, and non-destructive first-free allocation. */
 static uint8_t track_boot_menu_choice,track_save_return_page,track_new_project_full,track_load_from_boot;
+/* RC2: capacity is not the same as occupied project slots. 1 = serialized
+ * project too large, 2 = packed project too large, 3 = physical V2 flash
+ * capacity/fragmentation. 0 = other or free-slot rejection. */
+static uint8_t track_save_capacity_reason;
 /* LIVE project-chain data are isolated from both SONG patterns and project codec.
  * The completion bit is written by DMA but foreground alone may read flash. */
 static struct blue_live_setlist blue_live;
@@ -761,20 +765,41 @@ static int beetle_v2_load_staged(uint8_t slot){
 static int beetle_v2_save_staged(void){
  uint8_t slot=beetle_staged.slot; /* preserve before overwriting staging scratch */
  uint8_t *work=beetle_v2_workspace();uint32_t encoded=0u;
- if(track_store_encode(&beetle_staged,beetle_codec_buffer,
-     sizeof(beetle_codec_buffer),&encoded))return TRACK_JOURNAL_CAPACITY;
+ int encode_rc=track_store_encode(&beetle_staged,beetle_codec_buffer,
+     sizeof(beetle_codec_buffer),&encoded);
+ if(encode_rc){
+  if(encode_rc==-2){track_save_capacity_reason=1u;return TRACK_JOURNAL_CAPACITY;}
+  return TRACK_JOURNAL_INVALID;
+ }
  /* Project stage may be discarded after serialization; audio engine has
   * already captured musical data separately and keeps playback paused. */
  size_t packed=0;
- if(beetle_pack_project_v2(beetle_codec_buffer,encoded,work+12288u,12272u,
-     &packed,(uint16_t *)(void *)(work+8192u)))return TRACK_JOURNAL_CAPACITY;
+ int pack_rc=beetle_pack_project_v2(beetle_codec_buffer,encoded,work+12288u,12272u,
+     &packed,(uint16_t *)(void *)(work+8192u));
+ if(pack_rc){
+  if(pack_rc==BEETLE_PACK_V2_CAPACITY){track_save_capacity_reason=2u;return TRACK_JOURNAL_CAPACITY;}
+  return TRACK_JOURNAL_INVALID;
+ }
  struct beetle_v2_writer w;
  if(beetle_v2_writer_open(&w,beetle_v2_hal_read,beetle_v2_hal_program,
   beetle_v2_hal_erase,0,work,work+4096u))return TRACK_JOURNAL_FOREIGN;
  beetle_write_permit=1u;
  int rc=beetle_v2_write_project(&w,slot,
     work+12288u,(uint32_t)packed,work,work+4096u,work+24576u);
+ /* A V2 slot may be empty while old aborted transactions occupy unreferenced
+  * flash sectors. A *capacity* refusal happens before any writes in the V2
+  * writer. Collect ONLY provably orphaned sectors after checking BOTH valid
+  * superblock generations, then retry this exact CRC-packed record once.
+  * Never format, erase a referenced record, alter other slots, or retry I/O. */
+ if(rc==-2){
+  int reclaimed=beetle_v2_collect(&w,work,work+4096u);
+  if(reclaimed>0)
+   rc=beetle_v2_write_project(&w,slot,work+12288u,(uint32_t)packed,
+      work,work+4096u,work+24576u);
+  else if(reclaimed<0)rc=reclaimed;
+ }
  beetle_write_permit=0u;
+ if(rc==-2)track_save_capacity_reason=3u;
  return rc==0?TRACK_JOURNAL_OK:rc==-2?TRACK_JOURNAL_CAPACITY:TRACK_JOURNAL_IO;
 }
 #endif
@@ -865,6 +890,7 @@ static int beetle_project_save_staged_internal(void){
  return rc;
 }
 static int beetle_project_save_staged(void){
+ track_save_capacity_reason=0u;
 #if defined(BEETLE_NATIVE_V2) && BEETLE_NATIVE_V2
  beetle_bd4_live_invalidate();
 #endif
@@ -1171,7 +1197,7 @@ static void track_fm1_boot(void){
  track_type_queued=0;track_rec_since=0u;track_rec_long=0u;track_punch_edit_row=0u;track_punch_edit_index=0u;
  track_preset_last_note=60u;track_preset_last_note2=1u;beetle_groove_reset(&track_groove_clock);track_drum_note1_serial=track_drum_note2_serial=0u;track_boot_splash_until=etch_ms+1320u;
  blue_drum_mix_component=blue_drum_mix_field=blue_drum_mix_kit=0u;
- blue_drum_mix_save_pending=blue_drum_mix_save_status=0u;blue_fx_down_at=0u;blue_fx_long=blue_fx_consumed=blue_fx_short_release=blue_fx_modifier=0u;track_fx_drum_lane=0u;track_fx_slot=0u;blue_fx_previous_tap_ms=0u;track_fx_full_until=0u;track_copy_blocked_until=0u;track_storage_full_until=0u;track_storage_full_reason=0u;track_edit_poly=0u;track_key_oct_chord.last=0u;track_key_oct_chord.combo_latched=0u;
+ blue_drum_mix_save_pending=blue_drum_mix_save_status=0u;blue_fx_down_at=0u;blue_fx_long=blue_fx_consumed=blue_fx_short_release=blue_fx_modifier=0u;track_fx_drum_lane=0u;track_fx_slot=0u;blue_fx_previous_tap_ms=0u;track_fx_full_until=0u;track_copy_blocked_until=0u;track_storage_full_until=0u;track_storage_full_reason=0u;track_save_capacity_reason=0u;track_edit_poly=0u;track_key_oct_chord.last=0u;track_key_oct_chord.combo_latched=0u;
  native_controls.octave=0;track_edit_prev_keys=0u;track_edit_mono_birth=0u;beetle_mono_reset(&track_mono_keys);track_overwrite_wait=0u;
  for(uint8_t i=0u;i<TRACK_PROJECTS;i++)track_slot_seen[i]=0u;
  track_storage_result=TRACK_JOURNAL_HARDWARE_LOCKED;track_storage_confirm_since=0u;track_unsaved_action=0u;track_session_saved_slot=255u;track_saved_toast_until=0u;track_storage_busy_kind=0u;beetle_io_input_begin(&track_io_input_guard,etch_ms);track_io_input_guard.active=0u;
@@ -3123,7 +3149,7 @@ static void track_fm1_paint(void){
   track_pix_center("K1 CHOOSE   SEL OPEN",120u,209u,TRACK_PINK);
   track_pix_center(
 #if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
- "BEETLE BLUE V1.0 RC1",
+ "BEETLE BLUE V1.0 RC2",
 #else
  "BEETLE V1.7.14",
 #endif
@@ -3330,7 +3356,7 @@ static void track_fm1_paint(void){
    track_storage_result==TRACK_JOURNAL_HARDWARE_LOCKED?"FLASH SAVE LOCKED":
    track_storage_result==TRACK_JOURNAL_INVALID?"PROJECT DATA ERROR":
    track_storage_result==TRACK_JOURNAL_IO?"FLASH I/O ERROR":
-   track_storage_result==TRACK_JOURNAL_CAPACITY?(track_new_project_full?"NO FREE PROJECT SLOT":"PROJECT TOO FULL"):"STORAGE ERROR",120u,109u,TRACK_WHITE);
+   track_storage_result==TRACK_JOURNAL_CAPACITY?(track_new_project_full?"NO FREE PROJECT SLOT":track_save_capacity_reason==1u?"PROJECT DATA TOO LARGE":track_save_capacity_reason==2u?"PROJECT PACK TOO LARGE":track_save_capacity_reason==3u?"FLASH SPACE LOW":"PROJECT TOO FULL"):"STORAGE ERROR",120u,109u,TRACK_WHITE);
   track_pix_center(track_storage_result==TRACK_JOURNAL_OK?
    (track_storage_just_initialized?"INITIALIZED + PROJECT SAVED":"CRC VERIFIED"):
    "NO DATA WRITTEN",120u,131u,TRACK_BRIGHT);
@@ -3386,10 +3412,17 @@ static void track_storage_full_popup_draw(void){
     (int32_t)(track_storage_full_until-etch_ms)<=0)return;
  lcd_fill(12u,85u,216u,83u,TRACK_DARK);
  lcd_fill(12u,85u,216u,2u,TRACK_PINK);
- track_pix_center("STORAGE FULL",120u,98u,TRACK_PINK);
- track_pix_center(track_storage_full_reason==1u?"ALL 12 PROJECT SLOTS USED":"NO SPACE FOR PROJECT",120u,119u,TRACK_WHITE);
+ track_pix_center(track_save_capacity_reason==1u?"PROJECT DATA LIMIT":
+   track_save_capacity_reason==2u?"PACKED SIZE LIMIT":
+   track_save_capacity_reason==3u?"FLASH CAPACITY":"STORAGE FULL",120u,98u,TRACK_PINK);
+ track_pix_center(track_storage_full_reason==1u?"ALL 12 PROJECT SLOTS USED":
+   track_save_capacity_reason==1u?"PROJECT EXCEEDS 12K RAM":
+   track_save_capacity_reason==2u?"PROJECT DOES NOT FIT":
+   track_save_capacity_reason==3u?"NOT ENOUGH SAFE FLASH":"NO SPACE FOR PROJECT",120u,119u,TRACK_WHITE);
  track_pix_center("PROJECT NOT SAVED",120u,140u,TRACK_BRIGHT);
- track_pix_center("FREE SPACE / USE SAVE AS",120u,155u,TRACK_WHITE);
+ track_pix_center(track_save_capacity_reason==1u||track_save_capacity_reason==2u?
+   "REDUCE PROJECT / BACKUP":track_save_capacity_reason==3u?
+   "BACKUP BEFORE CLEANUP":"CHECK STORAGE / BACKUP",120u,155u,TRACK_WHITE);
 }
 static void track_copy_safety_popup_draw(void){
  if((int32_t)(track_copy_blocked_until-etch_ms)<=0)return;
@@ -3537,6 +3570,7 @@ static void beetle_storage_input_lock(void){
  native_edit_keys_blocked=1u;
 }
 static void track_complete_save(void){
+ track_save_capacity_reason=0u;
  if(track_new_project_full){
   /* All 12 slots occupied or flash ownership unknown. Never auto-overwrite. */
   track_storage_result=TRACK_JOURNAL_CAPACITY;track_show_storage_full(1u);track_page=8u;return;

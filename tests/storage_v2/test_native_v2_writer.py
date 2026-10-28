@@ -167,3 +167,34 @@ with tempfile.TemporaryDirectory() as tmp:
  er=ER(no_erase)
  assert lib.beetle_v2_writer_open(ctypes.byref(w),rd,pg,er,None,idx,older)<0
  print('PASS: V2 writer refuses unknown/corrupt superblocks without flash modifications')
+ # RC2: automatic project-save compaction may erase ONLY orphaned, unreferenced
+ # sectors after both A/B metadata generations have been audited. Simulate a
+ # power-cut transaction that left dirty pages without index references.
+ before=Storage(Nor(original,authorized=True),codec)
+ referenced=set()
+ for pair in before.current.projects:
+  for ent in pair:
+   if ent:
+    lo=ent.ref.offset//4096
+    hi=(ent.ref.offset+24+ent.ref.length+255)//4096
+    referenced.update(range(lo,hi+1))
+ for ent in before.current.samples:
+  if ent:
+   for ref in ent.chunks:
+    referenced.add(ref.offset//4096)
+ targets=[s for s in range(2,72) if s not in referenced and 8<s<67]
+ assert len(targets)>=2
+ orphan=Nor(original,authorized=True)
+ for sec in targets[:2]:orphan.program_page(sec*4096,b'\x00'*256)
+ gcflash,gcw,gi,go,gpage,gcallbacks=make_fixture(bytes(orphan.bytes))
+ original_records={i:before.load_project(i) for i in range(12)}
+ original_samples={i:before.load_sample(i) for i in range(13)}
+ erases_before=gcflash.mutations
+ cleaned=lib.beetle_v2_collect(ctypes.byref(gcw),gi,go)
+ assert cleaned>=2,(cleaned,targets)
+ assert gcflash.mutations-erases_before==cleaned
+ after=Storage(Nor(bytes(gcflash.bytes),authorized=True),codec)
+ assert all(after.load_project(i)==original_records[i] for i in range(12))
+ assert all(after.load_sample(i)==original_samples[i] for i in range(13))
+ assert lib.beetle_v2_collect(ctypes.byref(gcw),gi,go)==0
+ print('PASS RC2: collect orphaned sectors, preserve 12 projects and 13 sample slots, repeated GC no-op')

@@ -16,7 +16,7 @@
 </p>
 
 <p align="center">
-  <sub>Development release: <strong>V1.0 RC1 (EXPERIMENTAL)</strong> · <a href="CHANGELOG.md">Release history</a> · <a href="validation/V1.0-RC1-RESULTS.md">Software validation</a></sub>
+  <sub>Development release: <strong>V1.0 RC2 (EXPERIMENTAL)</strong> · <a href="CHANGELOG.md">Release history</a> · <a href="validation/RC2-STORAGE-FIX.md">Software validation</a></sub>
 </p>
 
 ---
@@ -31,7 +31,7 @@
 
 **BEETLE BLUE** is the drum-focused fork of [BEETLE](https://github.com/SikkenWorks/BEETLE) for the **M-VAVE FM1**. Instead of BEETLE's five synth lanes and one drum lane, BLUE routes its six sequencer lanes to drums. BEETLE BLUE is derived from the BEETLE V1.7.14 code base; its retained project, storage, effects, USB and OTA code should not be confused with features independently validated on real hardware.
 
-| Feature | BEETLE BLUE V1.0 RC1 |
+| Feature | BEETLE BLUE V1.0 RC2 |
 | :-- | :-- |
 | **Drum lanes** | 6 independent sequencer lanes; each has an authoritative project-saved kit assignment |
 | **Patterns** | 48 patterns, up to 16 steps per pattern |
@@ -54,6 +54,31 @@
 - **Empty Setlist:** HOME returns to Live Mode even when there are **no saved projects**. SELECT and OCT+ cannot create phantom P01 slots. Project selection requires a recognized saved slot, scanned incrementally. A failed write never silently marks an edited setlist as saved; a second HOME deliberately exits with an **UNSAVED** notice visible in Live Mode, keeping its edits in RAM for retry. Unchanged empty setlists never write flash.
 - **Song Chain copy/paste:** on the SONG CHAIN page, hold SEQ and press OP1 to copy the selected row or an inclusive SEL+K1 range. Put the cursor on the desired existing song position and press **SEQ+OP2** to **insert the copied rows immediately AFTER the cursor**. Existing rows move down and remain unchanged; a capacity failure (64 positions maximum) rejects the entire operation and briefly shows `CHAIN FULL - PASTE CANCELLED`. The first newly inserted row is selected. Undo/Redo remains available through existing editing history.
 - **Compatibility:** BDR1 V31, persistent 12 project slots, 24-entry Live Setlist and separate Song Chain remain unchanged. No new storage partition, project migration or automatic formatting is introduced.
+
+### V1.0 RC2: PROJECT TOO FULL diagnostic + safe V2 cleanup
+
+**The number of free project slots is not a measure of project capacity.** Each
+project has its own bounded 12-KiB encoded data/workspace limit, and all 12
+project slots share the storage volume with global sample banks. A large
+arrangement or project-owned sample data can exceed the per-project limit
+although other slots are empty. RC2 intentionally does not change the BDR1 V31
+schema, expand the physical partition or remove any notes/samples to make a
+save appear successful.
+
+On save to an initialized **Storage V2** volume, RC2 now identifies the failing
+stage: `PROJECT DATA TOO LARGE` (raw BDR1 serializer); `PROJECT PACK TOO LARGE`
+(packed record); or `FLASH SPACE LOW` (actual physical V2 allocation/guard).
+For physical-space refusals only, it checks both A/B metadata generations,
+collects **only unreferenced orphan sectors** and retries the same project once.
+This cannot fix a genuinely oversized project or a volume filled with valid
+sample data. No project slot or live sample sector is sacrificed. Storage V1
+still has its unchanged journal bank limit.
+
+**If RC2 still reports `PROJECT DATA TOO LARGE`, stop trying different slots.**
+Back up the project through the existing Project Manager or compatible transfer
+route first, then reduce the project's notes/FX or project-owned sample content.
+Do not delete project 1, format the device, or power off during a write. The
+physical FM1 behavior and the safe restore path are not certified.
 
 ### Live Mode: project setlists (V1.0 RC1)
 

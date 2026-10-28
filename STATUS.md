@@ -1,12 +1,8 @@
-BEETLE BLUE V1.0.0 RC1 — FIRMWARE BUILD CANDIDATE, NOT HARDWARE-CERTIFIED
+BEETLE BLUE V1.0 RC2 — EXPERIMENTAL STORAGE FIX
 
-FIXED: empty Setlist HOME navigation; no phantom unsaved P01; saved-only selection.
-FIXED: SONG CHAIN copy/paste inserts after the selected row, shifts the tail
-and rejects full-chain pastes without overwriting any music.
-FIXED: non-BLUE host test build of drum REV path.
-
-NATIVE FM1: writable and read-only builds compile. Protected header and
-inherited OTA loader are unchanged. Firmware package round-trips correctly.
-USB/Flash/recovery, precise battery state, and DMA load stability are NOT
-verified on a physical FM1. NOT stage-certified: do not use as production/live
-firmware until extensive independent-device testing and audio measurement.
+- Software-tested flash capacity diagnostics and orphan recovery retry.
+- Storage schema BDR1 V31 and V2 flash partition are unchanged.
+- A truly oversized project (12 KiB serialized) remains unsupported; do not delete
+  other projects to try to fit it. Backup first using existing Project Manager.
+- Reproducible on-device failure needs a size/flash diagnosis; no physical FM1 tested.
+- DMA DEADLINE/AUDIO STOP, OTA/recovery, USB audio remain unverified.
