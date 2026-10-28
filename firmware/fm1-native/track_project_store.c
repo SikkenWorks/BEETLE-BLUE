@@ -95,6 +95,130 @@ static uint8_t track_store_preflight(const struct track_store_project *p){
  }
  return 1u;
 }
+/* RC3: read-only, bounded investigation of a rejected project.  No implicit
+ * normalization: changing an unknown note, patch or sample at SAVE time would
+ * silently destroy music.  All lookups are bounded before array access. */
+uint8_t track_store_diagnose(const struct track_store_project *p){
+ if(!p)return 1u;
+ if(p->slot>=TRACK_PROJECTS||p->bpm<30u||p->bpm>300u||
+    p->harmony.root>=12u||p->harmony.mode>=9u||p->harmony.keylock>2u)return 1u;
+ if(!p->song.count||p->song.count>TRACK_SONG_ENTRIES||p->song.loop>1u||
+    p->song.enabled>1u||p->drum_note3_enabled>1u)return 2u;
+ for(uint8_t k=0;k<p->song.count;k++){
+  if(p->song.chain[k].pattern>=TRACK_PATTERNS||
+     p->song.chain[k].repeats<1u||p->song.chain[k].repeats>16u)return 2u;
+  for(uint8_t c=0;c<TRACK_CHANNELS;c++)
+   if(!track_song_valid_lane(p->song.chain[k].lane[c]))return 2u;
+ }
+ if(p->mixer.quantize_mutes>1u)return 3u;
+ for(uint8_t c=0;c<TRACK_CHANNELS;c++){
+  const struct track_mixer_channel *m=&p->mixer.ch[c];
+  if(m->volume>120u||m->pan< -100||m->pan>100||m->mute>1u||
+      m->solo>1u||m->swing>100u)return 3u;
+ }
+ if(p->song.extras.count>TRACK_EXTRA_FX_CAP)return 5u;
+ for(uint8_t r=0;r<TRACK_PATTERNS;r++){
+  const struct track_pattern *pat=&p->song.patterns[r];
+  if(!pat->length||pat->length>TRACK_STEPS)return 4u;
+  for(uint8_t c=0;c<TRACK_CHANNELS;c++)for(uint8_t t=0;t<TRACK_STEPS;t++)
+   if(!valid_step(&pat->ch[c][t],c))return 4u;
+  for(uint8_t t=0;t<TRACK_STEPS;t++){
+   const struct track_note2_fx *fx=&pat->note2_fx[t];
+   if(fx->effect>=TRACK_FX_COUNT||
+      fx->value>(fx->effect==TRACK_FX_VOLUME?200u:100u)||
+      (pat->note3[t]>=TRACK_DRUM_NOTE_COUNT &&
+       pat->note3[t]!=TRACK_NOTE_STOP && pat->note3[t]!=TRACK_NOTE_EMPTY))return 4u;
+  }
+  const struct track_song_clip *clip=&p->song.clips[r];
+  if(clip->count>TRACK_SONG_FX_EVENTS)return 6u;
+  for(uint8_t t=0;t<clip->count;t++){
+   const struct track_song_event *ev=&clip->data[t];
+   if(ev->step>=TRACK_STEPS||ev->fx>=TRACK_PUNCH_COUNT||ev->down>2u||
+      (ev->param>100u&&(ev->param!=255u||ev->down==2u)))return 6u;
+  }
+ }
+ for(uint8_t j=0;j<p->song.extras.count;j++){
+  const struct track_extra_fx *ev=&p->song.extras.data[j];
+  uint8_t key=(uint8_t)(ev->id&127u),lane=(uint8_t)(key/TRACK_STEPS);
+  uint8_t effect=track_extra_effect(ev);
+  if(ev->pattern>=TRACK_PATTERNS||lane>=TRACK_CHANNELS||
+     ((ev->id&128u)!=0u&&lane!=TRACK_DRUM_CHANNEL)||
+     !effect||effect>=TRACK_FX_COUNT||
+     ev->value>(effect==TRACK_FX_VOLUME?200u:100u)||
+     track_extra_count(&p->song,ev->pattern,ev->id)>2u)return 5u;
+ }
+ for(uint8_t c=0;c<TRACK_DRUM_COUNT;c++){
+  const struct track_drum_timbre *d=&p->drum[c];
+  if(d->attack>100u||d->decay>100u||d->sustain>100u||d->release>100u||
+     d->eq_low>100u||d->eq_mid>100u||d->eq_high>100u||
+     d->gain>100u||d->pitch< -36||d->pitch>36||d->drive>100u||
+     d->choke_group>7u)return 7u;
+ }
+#if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
+ if(p->drum_kit>=12u)return 8u;
+ for(uint8_t c=0;c<8u;c++)if(p->kit_palette[c]>13u)return 8u;
+ for(uint8_t c=0;c<TRACK_CHANNELS;c++)if(p->lane_kit[c]>13u)return 8u;
+ for(uint8_t c=0;c<BEETLE_ONESHOT_NOTES;c++){
+  const struct track_drum_timbre *u=&p->drum_user[c];
+  if(u->gain>100u||u->drive>100u||u->choke_group>7u||
+     p->sample_start[c]>=p->sample_end[c]||p->sample_end[c]>100u||
+     p->sample_attack[c]>100u||p->sample_decay[c]>100u||
+     p->sample_sustain[c]>100u||p->sample_release[c]>100u)return 8u;
+ }
+#endif
+ const struct track_master_settings *m=&p->master;
+ for(uint8_t c=0;c<4u;c++)
+  if(m->eq[c]>100u||m->eq_freq[c]>100u||m->eq_width[c]>100u)return 9u;
+ if(m->comp_threshold>100u||m->comp_ratio>100u||m->comp_gain>100u||
+    m->comp_attack>100u||m->reverb_wet>100u||
+    m->reverb_feedback>100u||m->reverb_tone>100u||m->reverb_spread>100u)return 9u;
+ uint8_t seen=0u;
+ for(uint8_t c=0;c<3u;c++){
+  if(m->enabled[c]>1u||m->order[c]>2u||
+     (seen&(1u<<m->order[c])))return 9u;
+  seen|=(uint8_t)(1u<<m->order[c]);
+ }
+ for(uint8_t c=0;c<13u;c++)if(p->punch_param[c]>100u)return 10u;
+ if((p->snapshots.valid&~0x0fu)!=0u)return 11u;
+ for(uint8_t c=0;c<BEETLE_SNAPSHOT_SLOTS;c++)
+  if((p->snapshots.masks[c]&~BEETLE_SNAPSHOT_MASK)!=0u)return 11u;
+ for(uint8_t c=0;c<BEETLE_GROUP_SLOTS;c++)
+  if((p->groups.masks[c]&~BEETLE_GROUP_MASK)!=0u)return 11u;
+ for(uint8_t c=0;c<TRACK_CHIP_SLOTS;c++){
+  const struct track_store_instrument *v=&p->instruments[c];
+  if(v->type>=TRACK_CHIP_TYPES||v->duty>100u||v->volume>100u)return 12u;
+  if(!track_va_patch_valid(&v->va)){
+   const struct track_va_patch zero={0};
+   if(memcmp(&v->va,&zero,sizeof(zero)))return 12u;
+  }
+  if((p->type_valid[c]&~((1u<<TRACK_CHIP_TYPES)-1u))!=0u)return 12u;
+  for(uint8_t t=0;t<TRACK_CHIP_TYPES;t++)if(p->type_valid[c]&(1u<<t)){
+   const struct track_store_instrument *pr=&p->type_presets[c][t];
+   if(pr->type!=t||pr->duty>100u||pr->volume>100u||
+      pr->attack>100u||pr->decay>100u||pr->sustain>100u||
+      pr->release>100u||!track_va_patch_valid(&pr->va))return 12u;
+  }
+ }
+ for(uint8_t c=0;c<BEETLE_LIBRARY_SLOTS;c++)if(p->library.valid&(1u<<c)){
+  const struct track_store_instrument *v=&p->library.patch[c];
+  if(v->type>=TRACK_CHIP_TYPES||v->duty>100u||v->volume>100u||
+     !track_va_patch_valid(&v->va))return 13u;
+  for(uint8_t j=0;j<BEETLE_LIBRARY_NAME;j++){
+   char ch=p->library.name[c][j];
+   if(!((ch>='A'&&ch<='Z')||(ch>='0'&&ch<='9')||ch==' '||ch=='-'||ch=='_'))return 13u;
+  }
+ }
+ const struct beetle_oneshot_bank *b=&p->oneshots;
+ uint32_t total=beetle_oneshot_used(b);
+ if(total>BEETLE_ONESHOT_MAX_BYTES||
+    (total&&(!b->first||(total>BEETLE_ONESHOT_FIRST_BYTES&&!b->second))))return 14u;
+ if(total)for(uint8_t c=0;c<BEETLE_ONESHOT_NOTES;c++)for(uint8_t j=0;j<8u;j++){
+  uint8_t ch=(uint8_t)b->name[c][j];
+  if(ch && !(ch>='A'&&ch<='Z')&&!(ch>='0'&&ch<='9')&&ch!=' '&&ch!='-'&&ch!='_')return 14u;
+ }
+ return 0u; /* Encoder may still reject an unrecognized format: report 15. */
+}
+
 #define PUT1(V) do{if(i>=cap)return -2;out[i++]=(uint8_t)(V);}while(0)
 #define GET1(V) do{if(i>=n)return -2;(V)=data[i++];}while(0)
 int track_store_encode(const struct track_store_project *p,uint8_t *out,uint32_t cap,uint32_t *used){
@@ -132,6 +256,30 @@ int track_store_encode(const struct track_store_project *p,uint8_t *out,uint32_t
     out[mask_at+(pos>>3)]|=(uint8_t)(1u<<(pos&7u));populated++;
    }
   }
+  /* BLUE V32: compact lossless per-step encoding.  Earlier V31 allocated
+   * 42 bits even for a note with all other properties at defaults.  On
+   * dense songs that exhausted 12 KiB despite plenty of free V2 flash.
+   * Flags serialize only non-default fields; no notes are removed.  Legacy
+   * V1–V31 readers remain in the decoder below. */
+#if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
+  for(c=0;c<TRACK_CHANNELS;c++)for(s=0;s<TRACK_STEPS;s++){
+   uint32_t pos=(uint32_t)c*TRACK_STEPS+s;
+   if(!(out[mask_at+(pos>>3)]&(1u<<(pos&7u))))continue;
+   const struct track_step *st=&pat->ch[c][s];
+   struct track_step def=empty_step(c);
+   uint8_t flags=(uint8_t)((st->note!=def.note?1u:0u)|
+     ((st->instrument!=def.instrument||st->chord!=def.chord)?2u:0u)|
+     ((st->effect!=def.effect||st->value!=def.value)?4u:0u)|
+     (st->dynamics!=def.dynamics?8u:0u)|
+     (st->groove!=def.groove?16u:0u));
+   PUT1(flags);
+   if(flags&1u)PUT1(st->note);
+   if(flags&2u)PUT1((uint8_t)(st->instrument|(st->chord<<3u)));
+   if(flags&4u){PUT1(st->effect);PUT1(st->value);}
+   if(flags&8u)PUT1(st->dynamics);
+   if(flags&16u)PUT1(st->groove);
+  }
+#else
   uint32_t packed=(populated*(TRACK_STORE_VERSION>=31u?TRACK_V31_PACKED_STEP_BITS:TRACK_V20_PACKED_STEP_BITS)+7u)/8u;
   if(i+packed>cap)return -2;
   memset(out+i,0,packed);uint32_t bit=0u;
@@ -145,6 +293,7 @@ int track_store_encode(const struct track_store_project *p,uint8_t *out,uint32_t
    pack_bits(out+i,&bit,st->dynamics,8u);pack_bits(out+i,&bit,st->groove,7u);
   }
   i+=packed;
+#endif
   /* V18: compact independent CH6 NOTE2 FX: two-byte bitmask + FX/value pairs.
    * A blank pair (0/0 or 0/50) consumes no storage. Older schemas are decoded below. */
   uint16_t fx2_mask=0u;
@@ -343,7 +492,7 @@ int track_store_encode(const struct track_store_project *p,uint8_t *out,uint32_t
 }
 int track_store_decode(struct track_store_project *p,const uint8_t *data,uint32_t n){
  if(!p||!data||n<42u||n>TRACK_STORE_MAX)return -1;
- if(rd32(data)!=TRACK_STORE_MAGIC||(rd16(data+4u)!=1u&&rd16(data+4u)!=2u&&rd16(data+4u)!=3u&&rd16(data+4u)!=4u&&rd16(data+4u)!=5u&&rd16(data+4u)!=6u&&rd16(data+4u)!=7u&&rd16(data+4u)!=8u&&rd16(data+4u)!=9u&&rd16(data+4u)!=10u&&rd16(data+4u)!=11u&&rd16(data+4u)!=12u&&rd16(data+4u)!=13u&&rd16(data+4u)!=14u&&rd16(data+4u)!=15u&&rd16(data+4u)!=16u&&rd16(data+4u)!=17u&&rd16(data+4u)!=18u&&rd16(data+4u)!=19u&&rd16(data+4u)!=20u&&rd16(data+4u)!=21u&&rd16(data+4u)!=22u&&rd16(data+4u)!=23u&&rd16(data+4u)!=24u&&rd16(data+4u)!=25u&&rd16(data+4u)!=26u&&rd16(data+4u)!=27u&&rd16(data+4u)!=28u&&rd16(data+4u)!=29u&&rd16(data+4u)!=30u&&rd16(data+4u)!=TRACK_STORE_VERSION)||rd16(data+6u)>=TRACK_PROJECTS||rd32(data+8u)!=n||
+ if(rd32(data)!=TRACK_STORE_MAGIC||(rd16(data+4u)!=1u&&rd16(data+4u)!=2u&&rd16(data+4u)!=3u&&rd16(data+4u)!=4u&&rd16(data+4u)!=5u&&rd16(data+4u)!=6u&&rd16(data+4u)!=7u&&rd16(data+4u)!=8u&&rd16(data+4u)!=9u&&rd16(data+4u)!=10u&&rd16(data+4u)!=11u&&rd16(data+4u)!=12u&&rd16(data+4u)!=13u&&rd16(data+4u)!=14u&&rd16(data+4u)!=15u&&rd16(data+4u)!=16u&&rd16(data+4u)!=17u&&rd16(data+4u)!=18u&&rd16(data+4u)!=19u&&rd16(data+4u)!=20u&&rd16(data+4u)!=21u&&rd16(data+4u)!=22u&&rd16(data+4u)!=23u&&rd16(data+4u)!=24u&&rd16(data+4u)!=25u&&rd16(data+4u)!=26u&&rd16(data+4u)!=27u&&rd16(data+4u)!=28u&&rd16(data+4u)!=29u&&rd16(data+4u)!=30u&&rd16(data+4u)!=31u&&rd16(data+4u)!=TRACK_STORE_VERSION)||rd16(data+6u)>=TRACK_PROJECTS||rd32(data+8u)!=n||
     rd32(data+12u)!=track_store_crc32(data+24u,n-24u)||rd32(data+16u)!=track_store_crc32(data,16u))return -3;
 #if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
  /* Prevent an old/foreign TRK1 project from entering the all-drum audio path.
@@ -424,7 +573,7 @@ int track_store_decode(struct track_store_project *p,const uint8_t *data,uint32_
    uint32_t count=0u;
    for(uint8_t x=0u;x<TRACK_V5_MASK_BYTES;x++)for(uint8_t b=0u;b<8u;b++)count+=(present[x]>>b)&1u;
    packed=(count*(rd16(data+4u)>=31u?TRACK_V31_PACKED_STEP_BITS:rd16(data+4u)>=20u?TRACK_V20_PACKED_STEP_BITS:rd16(data+4u)>=12u?TRACK_V12_PACKED_STEP_BITS:rd16(data+4u)>=11u?TRACK_V11_PACKED_STEP_BITS:TRACK_PACKED_STEP_BITS)+7u)/8u;
-   if(i+packed>n)return -2;
+   if(rd16(data+4u)<32u && i+packed>n)return -2;
   }else if(rd16(data+4u)>=4u){
    packed=TRACK_PACKED_PATTERN_BYTES;if(i+packed>n)return -2;
   }
@@ -432,7 +581,16 @@ int track_store_decode(struct track_store_project *p,const uint8_t *data,uint32_
    uint8_t lane=(uint8_t)((!v5&&c==3u)?TRACK_DRUM_CHANNEL:c);
    struct track_step *st=&pat->ch[lane][s];
    if(v5 && !(present[((uint32_t)c*TRACK_STEPS+s)>>3u]&(1u<<(((uint32_t)c*TRACK_STEPS+s)&7u))))continue;
-   if(rd16(data+4u)>=4u){
+   if(rd16(data+4u)>=32u){
+    uint8_t flags;GET1(flags);
+    if(flags&~31u)return -3;
+    if(flags&1u)GET1(st->note);
+    if(flags&2u){uint8_t v;GET1(v);if(v&128u)return -3;
+      st->instrument=v&7u;st->chord=v>>3u;}
+    if(flags&4u){GET1(st->effect);GET1(st->value);}
+    if(flags&8u)GET1(st->dynamics);
+    if(flags&16u)GET1(st->groove);
+   }else if(rd16(data+4u)>=4u){
     st->note=(uint8_t)unpack_bits(data+i,&bit,8u);
     st->instrument=(uint8_t)unpack_bits(data+i,&bit,rd16(data+4u)>=20u?3u:2u);
     st->chord=(uint8_t)unpack_bits(data+i,&bit,4u);
@@ -445,7 +603,7 @@ int track_store_decode(struct track_store_project *p,const uint8_t *data,uint32_
    }
    if(!valid_step(st,lane))return -3;
   }
-  if(rd16(data+4u)>=4u)i+=packed;
+  if(rd16(data+4u)>=4u && rd16(data+4u)<32u)i+=packed;
   for(s=0;s<TRACK_STEPS;s++){pat->note2_fx[s].effect=0u;pat->note2_fx[s].value=50u;}
   if(rd16(data+4u)>=18u){
    if(i+2u>n)return -2;

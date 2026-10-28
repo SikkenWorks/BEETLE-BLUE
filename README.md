@@ -1,3 +1,47 @@
+# BEETLE BLUE V1.0.0 RC8 — PROJECT DATA ERROR fix
+
+Gebruik **BEETLE-BLUE-Manager.html** of **BEETLE-BLUE-V1.0.0-RC8-WebInstaller.html**.
+De nieuwe firmware is **BEETLE-BLUE-V1.0.0-RC8-PROJECT-SAVE-FIX.fwsc**.
+Oudere bestanden zijn behouden als referentie; gebruik voor deze fix RC8.
+
+## Oorzaak en correctie
+
+De samplecache en het te bewaren project delen hetzelfde RAM. RC7 riep na
+project-capture/decoding `beetle_bd4_live_invalidate()` aan. Die functie schrijft
+cacheflags en wist chunks/attack-snapshots via de oude pointer. Daarmee werd de
+klaargezette song beschadigd voordat de encoder hem controleerde. De fout is
+op de originele RC7 SAVE-wrapper gereproduceerd: `TRACK_JOURNAL_INVALID`,
+diagnose 4 (PATTERN / NOTES), bij de eerste opslag op lege legacy-opslag.
+Hetzelfde gedeelde pad wordt gebruikt voor Storage V2 en projectimports.
+
+RC8 ontkoppelt de cache met `beetle_bd4_live_bind(0,0u)` zonder projectbytes te
+wijzigen. Na de transactie wordt de cache opnieuw opgebouwd. Capture ontkoppelt
+eerst; eerste opslag na initialisatie maakt een verse capture na de bevestiging
+in plaats van oude scratchdata te vertrouwen. Validatie, capaciteitcontroles,
+CRC, schrijfautorisatie en opslagformaat blijven behouden. Geen extra grote
+RAM-buffer; geen automatische wipe, migratie of projectnormalisatie toegevoegd.
+
+
+Zie RC8-VALIDATION.md voor tests en gebruik.
+
+---
+
+# BEETLE BLUE V1.0 RC7 — Storage V2 format fix (EXPERIMENTAL)
+
+**Important:** RC6 and older could leave you on Legacy Storage after `Wipe All Storage`, and RC4's V2 superblock initializer had invalid header bytes. RC7 corrects both defects. With double-confirmed `HOME → WIPE ALL STORAGE`, an already BEETLE-owned legacy volume is reformatted to **Storage V2**, CRC-validated and mounted. This is fully destructive, NOT a data-preserving migration. There is no automatic erase on startup or SAVE. Never flash while your music is unsaved, and do not wipe without a verified full backup and recovery route. See [RC7-VALIDATION.md](RC7-VALIDATION.md) for software/hardware validation boundaries.
+
+# BEETLE BLUE V1.0 RC6 (EXPERIMENTAL)
+
+Storage error classification and new-session staging initialization. **Do not update an FM1 with an unsaved project.** See [RC6-VALIDATION.md](RC6-VALIDATION.md) for limitations.
+
+# BEETLE BLUE V1.0 RC5 (EXPERIMENTAL)
+
+V32 lossless sparse pattern storage and per-lane kit routing fixes. See [RC5-VALIDATION.md](RC5-VALIDATION.md) for measurements, hardware warnings and migration constraints.
+
+# BEETLE BLUE V1.0 RC4 (EXPERIMENTAL)
+
+See [RC4-VALIDATION.md](RC4-VALIDATION.md) for the confirmed storage fixes, destructive wipe warning and remaining FM1 hardware risks.
+
 <p align="center">
   <img src="BEETLE-BLUE.png" alt="BEETLE BLUE pixel-art boot image" width="320">
 </p>
@@ -16,8 +60,10 @@
 </p>
 
 <p align="center">
-  <sub>Development release: <strong>V1.0 RC2 (EXPERIMENTAL)</strong> · <a href="CHANGELOG.md">Release history</a> · <a href="validation/RC2-STORAGE-FIX.md">Software validation</a></sub>
+  <sub>Development release: <strong>V1.0 RC3 (EXPERIMENTAL)</strong> · <a href="CHANGELOG.md">Release history</a> · <a href="validation/RC3-FX-SAVE-FIX.md">Software validation</a></sub>
 </p>
+
+> **Experimental firmware.** V1.0 RC3 has been compiled and checked in software, but flashing, the user-reported `DMA DEADLINE / AUDIO STOP` failure, audio output levels, USB audio and recovery **have not been validated on a physical FM1**. Do not interpret a successful build or host stress test as hardware safety certification. Use a dedicated test device only with verified backups and an independent recovery method.
 
 ---
 
@@ -31,7 +77,7 @@
 
 **BEETLE BLUE** is the drum-focused fork of [BEETLE](https://github.com/SikkenWorks/BEETLE) for the **M-VAVE FM1**. Instead of BEETLE's five synth lanes and one drum lane, BLUE routes its six sequencer lanes to drums. BEETLE BLUE is derived from the BEETLE V1.7.14 code base; its retained project, storage, effects, USB and OTA code should not be confused with features independently validated on real hardware.
 
-| Feature | BEETLE BLUE V1.0 RC2 |
+| Feature | BEETLE BLUE V1.0 RC3 |
 | :-- | :-- |
 | **Drum lanes** | 6 independent sequencer lanes; each has an authoritative project-saved kit assignment |
 | **Patterns** | 48 patterns, up to 16 steps per pattern |
@@ -48,6 +94,17 @@
 | **Project storage** | 12 device project slots; `BDR1` schema **V31** (reads V30 and earlier supported versions); `.bdrum` backup files |
 | **USB audio** | Inherited experimental stereo and six-mono-stem capture paths |
 | **UI** | Blue native LCD theme and C-rendered 1920 × 1920 reference captures |
+
+### V1.0 RC3: project data error when saving after step-FX type changes
+
+**Confirmed root cause:** changing a step effect from `VOLUME 200%` to a different FX type could retain a value of `200`, while that new effect permits a maximum value of `100`. The project serializer correctly rejected the inconsistent data as `PROJECT DATA ERROR`, before writing to flash. The fault can occur in FX1, NOTE2 FX, FX2 and FX3.
+
+- FX type changes now **clamp or reset** the previous value into the selected effect's supported range.
+- On SAVE, known-invalid legacy step-FX value/type combinations are corrected **only in a staged serialization copy**. Notes, patterns, effect types, instrument assignment, timing and the live audio data are not rewritten. Unknown invalid structures are still rejected, never silently discarded.
+- A refused save can display a specific failed field group, such as `STEP FX`, `SONG CHAIN` or `USER SAMPLE BANK`.
+- Project schema `BDR1 V31`, Storage V2 layout, all 12 project slots and global sample banks are unchanged. There is no automatic reformat or expanded flash-writer permission.
+- **Unsaved project warning:** flashing or restarting an FM1 with unsaved edits will lose RAM state. On RC2, before upgrading, try reviewing any effects changed from VOLUME above 100 to another type, and resetting their value to 100 or below before retrying SAVE. This can preserve the current unsaved work without installing new firmware.
+- The native app, packaged `.fwsc`, exact-byte embedded WebInstaller and corresponding Manager have been verified in software, but **physical FM1 save/OTA/recovery and audio safety remain unverified**.
 
 ### V1.0 RC1: corrected Setlist and Song Chain clipboard
 

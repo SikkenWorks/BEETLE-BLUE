@@ -1,12 +1,12 @@
 {
-  "app_sha256": "62238d95ac96bf3fdfbc6b72b7ee83f38a964313253139da2147f933d693497c",
+  "app_sha256": "686be5da9a2aef78afd8b8ad76072ce58b9fde7aac5ea02402393a4bc9823753",
   "beetle_storage_experimental": false,
   "beetle_v2_migrated_volume_experimental": false,
   "storage_writes": false,
   "ota_writes": false,
   "readonly_hardware_test": true,
   "flash_read_only": true,
-  "version": "BEETLE-BLUE-V0.99",
+  "version": "BEETLE-BLUE-V1.0.0-RC8",
   "pilot_ota_enabled_no_project_writes": false,
   "storage_requires_destructive_user_consent": false,
   "overwrites_prior_ETCH_Felucca_user_storage": false,
@@ -16,7 +16,7 @@
   "usb_audio_48000_experimental": false,
   "extended_store_experimental": false,
   "multi_project_experimental": false,
-  "product": "FM-1_2123",
+  "product": "FM-1_2124",
   "brand": "BEETLE",
   "legacy_project_format": "TRACK-compatible"
 }

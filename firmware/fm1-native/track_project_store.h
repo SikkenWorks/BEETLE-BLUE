@@ -16,7 +16,7 @@
 #define TRACK_STORE_MAGIC 0x314B5254u /* "TRK1" */
 #endif
 #if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
-#define TRACK_STORE_VERSION 31u
+#define TRACK_STORE_VERSION 32u
 #else
 #define TRACK_STORE_VERSION 26u
 #endif
@@ -69,6 +69,8 @@ struct track_store_project {
 };
 uint32_t track_store_crc32(const uint8_t *data,uint32_t n);
 /* Encode/decode endian-defined data with CRC32; no samples or foreign objects. */
+/* 0=valid; 1..14=field group; 15=unknown encoder rejection. Read-only. */
+uint8_t track_store_diagnose(const struct track_store_project *p);
 int track_store_encode(const struct track_store_project *p,uint8_t *out,uint32_t cap,uint32_t *used);
 int track_store_decode(struct track_store_project *p,const uint8_t *data,uint32_t n);
 /* Never write if a sector contains non-TRK1 content. Deliberately fail-closed. */

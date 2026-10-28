@@ -1,0 +1,2 @@
+PASS RC3: FX type transitions, FX1/2/3 invalid legacy values, no note loss, encode succeeds
+default return=0 bytes=1705

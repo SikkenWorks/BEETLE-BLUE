@@ -1,0 +1,8 @@
+mode=1 save=0 rc=-2 reason=4
+test: /tmp/tmp2k2b5cvq/test.c:197: main: Assertion `rc==TRACK_JOURNAL_OK' failed.
+Traceback (most recent call last):
+  File "/workspace/scratch/ceb781651a9e/work/BEETLE-BLUE-V1.0.0-RC8-COMPLETE-SOURCE/tests/track/test_blue_rc8_save_workspace.py", line 113, in <module>
+    subprocess.run([str(t/'test'),str(t/'nor.bin')],check=True)
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['/tmp/tmp2k2b5cvq/test', '/tmp/tmp2k2b5cvq/nor.bin']' died with <Signals.SIGABRT: 6>.

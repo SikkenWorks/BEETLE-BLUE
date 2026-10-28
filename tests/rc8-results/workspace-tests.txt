@@ -1,0 +1,1 @@
+PASS RC1.0.10 physical workspace / V0.71: 12 slots, no-op saves, 9 interruption points, CRC fallback, foreign protection

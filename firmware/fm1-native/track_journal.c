@@ -250,7 +250,14 @@ int track_journal_save(const struct track_journal_io *i,uint8_t slot,
  if(!valid_io(i,slot)||!p||!scratch||cap<TRACK_STORE_V4_MAX||p->slot!=slot)return TRACK_JOURNAL_INVALID;
  /* Pass the TRUE buffer capacity to the encoder. Passing TRACK_STORE_MAX
   * here could silently overwrite adjacent FM1 RAM in a dense project. */
- uint32_t n=0;if(track_store_encode(p,scratch,cap,&n)!=0)return TRACK_JOURNAL_CAPACITY;
+ uint32_t n=0;
+ /* RC6: INVALID content is not CAPACITY. The previous blanket mapping made
+  * even an EMPTY NEW PROJECT with a malformed inherited parameter display
+  * PROJECT TOO FULL, sending every diagnosis down the wrong path. */
+ int encode_status=track_store_encode(p,scratch,cap,&n);
+ if(encode_status==-1)return TRACK_JOURNAL_INVALID;
+ if(encode_status==-2)return TRACK_JOURNAL_CAPACITY;
+ if(encode_status)return TRACK_JOURNAL_INVALID;
  if(TRACK_JOURNAL_HEADER_BYTES+n>TRACK_JOURNAL_BANK_BYTES)return TRACK_JOURNAL_CAPACITY;
  struct bank_status b[2];int r;
  for(uint8_t k=0;k<2u;k++)if((r=inspect(i,slot,k,&b[k]))!=0)return r;

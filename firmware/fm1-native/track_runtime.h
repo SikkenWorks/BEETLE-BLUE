@@ -27,6 +27,7 @@
 #include "beetle_mute_groups.h"
 #include "track_punch_events.h"
 #include "track_song.h"
+#include "beetle_fx_save_safety.h"
 #include "beetle_song_rows.h"
 #include "beetle_battery_policy.h"
 #include "beetle_mono_audition.h"
@@ -85,6 +86,7 @@ static uint8_t track_drum_component,track_drum_field;
 #if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
 static uint8_t track_drum_kit_index;
 static struct blue_kit_bank blue_global_kits;
+static uint8_t blue_live_progress_active,blue_live_progress_percent;
 static uint8_t blue_kit_palette[8];
 static uint8_t blue_lane_kit[TRACK_CHANNELS]; /* active kit per drum lane */
 static uint8_t blue_lane_overlay,blue_lane_overlay_lane,blue_lane_overlay_source;
@@ -243,6 +245,8 @@ static uint8_t track_boot_menu_choice,track_save_return_page,track_new_project_f
  * project too large, 2 = packed project too large, 3 = physical V2 flash
  * capacity/fragmentation. 0 = other or free-slot rejection. */
 static uint8_t track_save_capacity_reason;
+static uint8_t track_save_is_legacy; /* RC6 diagnostic of active flash layout */
+static uint8_t track_save_data_reason;
 /* LIVE project-chain data are isolated from both SONG patterns and project codec.
  * The completion bit is written by DMA but foreground alone may read flash. */
 static struct blue_live_setlist blue_live;
@@ -587,10 +591,17 @@ static uint8_t track_history_step(uint8_t redo){
  * This memory is never touched from an audio ISR and is reused for loads. */
 static struct track_journal_status beetle_last_journal;
 static void beetle_project_capture(uint8_t slot){
+#if defined(BEETLE_NATIVE_V2) && BEETLE_NATIVE_V2
+ /* RC8: hand shared RAM to the project without writing through the old
+  * live-runtime view. Caller has paused audio before capture. */
+ beetle_bd4_live_bind(0,0u);
+#endif
  track_song_capture(&track_song,&track_state);
  /* The live engine is bound to stable metadata, not reused flash scratch. */
  beetle_staged.oneshots=beetle_live_oneshots;
  beetle_staged.song=track_song;beetle_staged.drum_note3_enabled=track_drum_note3_enabled;
+ /* Repair only known impossible FX value/type pairs from earlier UI builds. */
+ (void)beetle_fx_repair_staged_values(&beetle_staged.song);
 #if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
  beetle_staged.drum_kit=track_drum_kit_index;
  for(uint8_t j=0;j<8;j++)beetle_staged.kit_palette[j]=blue_kit_palette[j];
@@ -744,10 +755,36 @@ static int beetle_v2_mode(void){
  struct beetle_v2_domains dom;
  return beetle_v2_audit_domains(&d,&dom,beetle_codec_buffer)==0?1:-1;
 }
+/* RC4: progress is driven by completed verified flash reads, never a timer.
+ * The total is a conservative upper bound; the final phase is committed only
+ * after full project CRC, decode, and apply. This runs in foreground with
+ * audio paused. No LCD work takes place inside the flash IRQ-off section. */
+
+static uint32_t blue_live_progress_read_bytes,blue_live_progress_read_target;
+static void blue_live_progress_set(uint8_t percent){
+ if(!blue_live_progress_active)return;
+ if(percent>100u)percent=100u;
+ if(percent<=blue_live_progress_percent)return;
+ if(percent>=blue_live_progress_percent+6u||percent==100u){
+  blue_live_progress_percent=percent;
+  screen();
+ }
+}
+static int blue_live_project_read_progress(void *ctx,uint32_t address,uint8_t *dst,uint32_t count){
+ int rc=beetle_v2_hal_read(ctx,address,dst,count);
+ if(!rc&&blue_live_progress_active){
+  blue_live_progress_read_bytes+=count;
+  uint32_t total=blue_live_progress_read_target;
+  uint8_t value=(uint8_t)(10u+(total?blue_live_progress_read_bytes*75u/total:0u));
+  if(value>85u)value=85u;
+  blue_live_progress_set(value);
+ }
+ return rc;
+}
 static int beetle_v2_load_staged(uint8_t slot){
  uint8_t *work=beetle_v2_workspace();
  struct beetle_v2_device d;
- if(beetle_v2_open(&d,beetle_v2_hal_read,0,work))return TRACK_JOURNAL_FOREIGN;
+ if(beetle_v2_open(&d,blue_live_progress_active?blue_live_project_read_progress:beetle_v2_hal_read,0,work))return TRACK_JOURNAL_FOREIGN;
  uint32_t decoded=0u;
  int rc=beetle_v2_project_read(&d,slot,beetle_codec_buffer,sizeof(beetle_codec_buffer),
   &decoded,work,work+8192u,12272u);
@@ -758,6 +795,7 @@ static int beetle_v2_load_staged(uint8_t slot){
  beetle_staged.oneshots.second=beetle_oneshots_second;
  if(rc!=1||!decoded||track_store_decode(&beetle_staged,beetle_codec_buffer,decoded))
   return TRACK_JOURNAL_INVALID;
+ blue_live_progress_set(95u);
  beetle_last_journal.payload_bytes=decoded;
  beetle_last_journal.generation=d.generation;
  return TRACK_JOURNAL_OK;
@@ -769,6 +807,8 @@ static int beetle_v2_save_staged(void){
      sizeof(beetle_codec_buffer),&encoded);
  if(encode_rc){
   if(encode_rc==-2){track_save_capacity_reason=1u;return TRACK_JOURNAL_CAPACITY;}
+  track_save_data_reason=track_store_diagnose(&beetle_staged);
+  if(!track_save_data_reason)track_save_data_reason=15u;
   return TRACK_JOURNAL_INVALID;
  }
  /* Project stage may be discarded after serialization; audio engine has
@@ -778,7 +818,7 @@ static int beetle_v2_save_staged(void){
      &packed,(uint16_t *)(void *)(work+8192u));
  if(pack_rc){
   if(pack_rc==BEETLE_PACK_V2_CAPACITY){track_save_capacity_reason=2u;return TRACK_JOURNAL_CAPACITY;}
-  return TRACK_JOURNAL_INVALID;
+  track_save_data_reason=16u;return TRACK_JOURNAL_INVALID;
  }
  struct beetle_v2_writer w;
  if(beetle_v2_writer_open(&w,beetle_v2_hal_read,beetle_v2_hal_program,
@@ -880,19 +920,45 @@ static int beetle_project_save_staged_internal(void){
 #if defined(BEETLE_NATIVE_V2) && BEETLE_NATIVE_V2
  int mode=beetle_v2_mode();
  if(mode<0)return TRACK_JOURNAL_FOREIGN;
+ track_save_is_legacy=(uint8_t)(mode==0);
  if(mode==1)return beetle_v2_save_staged();
 #endif
- /* HAL write permit is held only for this verified transaction. */
+ /* RC6: legacy TRKJ also runs on FM1s still using the old marker.
+  * V2 compression does NOT run in this mode. Separate malformed project
+  * data from an actual 12KiB journal bank overflow BEFORE flash mutation.
+  * The prior journal collapsed both into PROJECT TOO FULL. */
+ uint32_t raw_bytes=0u;
+ int encode_rc=track_store_encode(&beetle_staged,beetle_codec_buffer,
+                                sizeof(beetle_codec_buffer),&raw_bytes);
+ if(encode_rc==-1){
+  track_save_data_reason=track_store_diagnose(&beetle_staged);
+  if(!track_save_data_reason)track_save_data_reason=15u;
+  return TRACK_JOURNAL_INVALID;
+ }
+ if(encode_rc==-2){track_save_capacity_reason=1u;return TRACK_JOURNAL_CAPACITY;}
+ if(encode_rc){track_save_data_reason=15u;return TRACK_JOURNAL_INVALID;}
+ if(raw_bytes>TRACK_JOURNAL_BANK_BYTES-TRACK_JOURNAL_HEADER_BYTES){
+  track_save_capacity_reason=2u;return TRACK_JOURNAL_CAPACITY;
+ }
  beetle_write_permit=1u;
  int rc=track_journal_save(&beetle_hal_journal_io,beetle_staged.slot,
       &beetle_staged,beetle_codec_buffer,sizeof(beetle_codec_buffer),&beetle_last_journal);
  beetle_write_permit=0u;
+ if(rc==TRACK_JOURNAL_INVALID){
+  track_save_data_reason=track_store_diagnose(&beetle_staged);
+  if(!track_save_data_reason)track_save_data_reason=15u;
+ }
+ if(rc==TRACK_JOURNAL_CAPACITY)track_save_capacity_reason=2u;
  return rc;
 }
 static int beetle_project_save_staged(void){
- track_save_capacity_reason=0u;
+ track_save_capacity_reason=0u;track_save_data_reason=0u;
+ track_save_is_legacy=0u;
 #if defined(BEETLE_NATIVE_V2) && BEETLE_NATIVE_V2
- beetle_bd4_live_invalidate();
+ /* RC8: staged project already occupies the live cache workspace.
+  * invalidate() writes cache flags/chunks/attack snapshots INTO the song.
+  * Detach only; bind(workspace) after the transaction rebuilds the cache. */
+ beetle_bd4_live_bind(0,0u);
 #endif
  int result=beetle_project_save_staged_internal();
 #if defined(BEETLE_NATIVE_V2) && BEETLE_NATIVE_V2
@@ -1178,6 +1244,10 @@ static void track_fm1_boot(void){
  blue_punch_blend=100u;blue_punch_pitch=24u;
  track_chip_fx_reset();track_ui_inst_reset();beetle_library_init(&track_library);track_library_slot=track_library_action=track_library_target=track_library_copy_source=track_library_notice=0u;track_drum_init(&track_drum);
 #if BEETLE_NATIVE_STORAGE
+ /* A NEW project must not inherit ANY staging-only fields from a previous
+  * project or a V2 metadata read.  This memory is idle during NEW and all
+  * state required for the next SAVE is captured afresh. */
+ memset(&beetle_staged,0,sizeof(beetle_staged));
  memset(&beetle_staged.oneshots,0,sizeof(beetle_staged.oneshots));
  beetle_staged.oneshots.first=beetle_oneshots_first;
  beetle_staged.oneshots.second=beetle_oneshots_second;
@@ -1266,6 +1336,32 @@ static void track_audio_all_off(struct etch_native_audio *audio){
 static uint8_t blue_monolith_resolve(uint8_t note){
  if(note<16u)return (uint8_t)(64u+note);
  return note;
+}
+#endif
+/* BLUE RC5: audition must follow the same saved per-lane kit as playback.
+ * This is called only from stopped-transport UI input.  The normal trigger
+ * snapshots the resulting timbre into its voice before we restore defaults. */
+#if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
+static int blue_trigger_lane_audition(uint8_t lane,uint8_t note){
+ if(lane>=TRACK_CHANNELS || note>=TRACK_DRUM_NOTE_COUNT)return 0;
+ uint8_t source=beetle_blue_lane_source(blue_lane_kit,lane);
+ uint8_t actual=source==1u?blue_monolith_resolve(note):note;
+ struct track_drum_timbre original;
+ uint8_t modified=(uint8_t)(source>=2u&&source<BLUE_KIT_TOTAL&&note<TRACK_DRUM_COUNT);
+ if(modified){original=track_drum.components[note];
+  blue_kit_sound(&blue_global_kits,source,note,&original,&track_drum.components[note]);}
+ int ok=track_drum_trigger(&track_drum,actual);
+ if(modified)track_drum.components[note]=original;
+ if(ok){uint32_t serial=track_drum.trigger_serial;
+  for(uint8_t v=0u;v<TRACK_DRUM_POLY;v++)
+   if(track_drum.voices[v].active&&track_drum.voices[v].sequence==serial)
+    track_drum.voices[v].source_lane=lane;
+ }
+ return ok;
+}
+#else
+static int blue_trigger_lane_audition(uint8_t lane,uint8_t note){
+ (void)lane;return track_drum_trigger(&track_drum,note);
 }
 #endif
 static const struct track_extra_fx *track_audio_extra(uint8_t lane,uint8_t row,uint8_t note2,uint8_t slot){
@@ -2214,7 +2310,7 @@ static void track_fm1_grid(void){
  }
  char pat[32]="PAT ";char num[12];track_u8(num,track_state.pattern_slot+1u);
  pat[4]=num[0];pat[5]=num[1];pat[6]=' ';pat[7]='/';pat[8]=' ';pat[9]='4';pat[10]='8';pat[11]=0;
- track_pix_text(pat,129u,224u,TRACK_PINK);
+ track_pix_text(pat,168u,224u,TRACK_PINK);
  if(drum)track_pix_text(track_drum_note3_enabled?"N3 ON":"N3 OFF",48u,224u,TRACK_BRIGHT);
 
  track_grid_lane_status();
@@ -2270,6 +2366,8 @@ static void blue_drum_component_mixer_screen(void){
  /* SELECT chooses a kit source, K1 the component inside that kit. Global
   * USER KIT values come directly from BBK1, never from a copy of the lane mix. */
  track_pix_text("KIT",6u,50u,TRACK_PINK);
+ {char ch[8]="CH 1";ch[3]=(char)('1'+track_state.transport.edit_channel);
+  track_pix_text(ch,198u,50u,TRACK_PINK);}
  if(blue_drum_mix_kit==0u)track_pix_text("BEETLE",45u,50u,TRACK_BRIGHT);
  else if(blue_drum_mix_kit==1u)track_pix_text("MONOLITH / ROM",45u,50u,TRACK_BRIGHT);
  else{
@@ -3046,6 +3144,21 @@ static void track_fm1_paint(void){
   track_pix_center(count,120u,225u,TRACK_PINK);
   return;
  }
+ if(track_page==47u){
+  track_page_header("LIVE / PERFORM",43u);
+  /* Modal fits inside the 240px LCD, avoids the battery and footer. */
+  lcd_fill(13u,72u,214u,112u,TRACK_ROW_BG);
+  track_pix_center("LOADING NEXT PROJECT",120u,90u,TRACK_WHITE);
+  track_pix_center("VERIFYING FLASH / CRC",120u,111u,TRACK_PINK);
+  lcd_fill(27u,141u,186u,14u,TRACK_BRIGHT);
+  lcd_fill(29u,143u,182u,10u,TRACK_DARK);
+  uint16_t filled=(uint16_t)((uint32_t)178u*blue_live_progress_percent/100u);
+  if(filled)lcd_fill(31u,145u,filled,6u,TRACK_PINK);
+  char amount[12];track_fmt_int(amount,blue_live_progress_percent);
+  track_pix_center(amount,120u,163u,TRACK_BRIGHT);
+  track_pix_center("PLEASE WAIT",120u,209u,TRACK_WHITE);
+  return;
+ }
  if(track_page==43u){
   track_page_header("LIVE MODE",43u);
   const char *const items[]={"SETLIST","PERFORM"};
@@ -3149,7 +3262,7 @@ static void track_fm1_paint(void){
   track_pix_center("K1 CHOOSE   SEL OPEN",120u,209u,TRACK_PINK);
   track_pix_center(
 #if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
- "BEETLE BLUE V1.0 RC2",
+ "BEETLE BLUE V1.0 RC8",
 #else
  "BEETLE V1.7.14",
 #endif
@@ -3191,15 +3304,15 @@ static void track_fm1_paint(void){
  if(track_page==33u || track_page==34u){
   track_page_header("WIPE ALL STORAGE",43u);
   track_pix_center(track_page==33u?"ARE YOU SURE?":"REALLY?",120u,80u,TRACK_PINK);
-  track_pix_center("DELETE ALL 12 PROJECTS",120u,113u,TRACK_WHITE);
-  track_pix_center(track_page==33u?"NO UNDO - BACKUP FIRST":"ETCH/FELUCCA DATA TOO",120u,136u,TRACK_BRIGHT);
+  track_pix_center("ERASE PROJECTS + SAMPLES",120u,113u,TRACK_WHITE);
+  track_pix_center(track_page==33u?"NO UNDO - BACKUP FIRST":"FORMAT V2 / ERASE ALL",120u,136u,TRACK_BRIGHT);
   track_pix_center(track_wipe_yes?"NO     > YES <":"> NO <     YES",120u,170u,TRACK_PINK);
   track_pix_center("K1 CHOOSE  SEL CONFIRM",120u,203u,TRACK_WHITE);
   track_pix_center("HOME CANCEL",120u,219u,TRACK_BRIGHT);return;
  }
  if(track_page==35u){
   track_page_header("INITIALIZING STORAGE",43u);
-  track_pix_center("ERASE + VERIFY 12 SLOTS",120u,88u,TRACK_PINK);
+  track_pix_center("ERASE + REFORMAT STORAGE",120u,88u,TRACK_PINK);
   char progress[32]="SECTORS ";char val[12];track_fmt_int(val,track_storage_progress_done);
   uint8_t x=8u,j=0u;while(val[j]&&x<22u)progress[x++]=val[j++];progress[x++]='/';
   track_fmt_int(val,track_storage_progress_total);j=0u;while(val[j]&&x<29u)progress[x++]=val[j++];progress[x]=0;
@@ -3208,9 +3321,9 @@ static void track_fm1_paint(void){
  }
  if(track_page==36u){
   track_page_header(track_wipe_result==0?"STORAGE READY":"WIPE NOT COMPLETED",43u);
-  track_pix_center(track_wipe_result==0?"ALL 12 SLOTS [EMPTY]":
+  track_pix_center(track_wipe_result==0?"STORAGE V2 FORMATTED":
     track_wipe_result==-1?"UNKNOWN / FOREIGN STORAGE":"ERASE OR VERIFY ERROR",120u,108u,TRACK_PINK);
-  track_pix_center(track_wipe_result==0?"BEETLE MARKER RECREATED":
+  track_pix_center(track_wipe_result==0?"V2 PROJECT / SAMPLE INDEX OK":
     "CHECK STORAGE / RECOVERY",120u,142u,TRACK_WHITE);
   track_pix_center("HOME: PROJECT MENU",120u,202u,TRACK_BRIGHT);return;
  }
@@ -3354,15 +3467,27 @@ static void track_fm1_paint(void){
    track_storage_result==TRACK_JOURNAL_FOREIGN?"FOREIGN STORAGE":
    track_storage_result==TRACK_JOURNAL_NO_PROJECT?"NO PROJECT":
    track_storage_result==TRACK_JOURNAL_HARDWARE_LOCKED?"FLASH SAVE LOCKED":
-   track_storage_result==TRACK_JOURNAL_INVALID?"PROJECT DATA ERROR":
+   track_storage_result==TRACK_JOURNAL_INVALID?(track_save_data_reason==17u?"TARGET SLOT CORRUPT":"PROJECT DATA ERROR"):
    track_storage_result==TRACK_JOURNAL_IO?"FLASH I/O ERROR":
-   track_storage_result==TRACK_JOURNAL_CAPACITY?(track_new_project_full?"NO FREE PROJECT SLOT":track_save_capacity_reason==1u?"PROJECT DATA TOO LARGE":track_save_capacity_reason==2u?"PROJECT PACK TOO LARGE":track_save_capacity_reason==3u?"FLASH SPACE LOW":"PROJECT TOO FULL"):"STORAGE ERROR",120u,109u,TRACK_WHITE);
+   track_storage_result==TRACK_JOURNAL_CAPACITY?(track_new_project_full?"NO FREE PROJECT SLOT":track_save_capacity_reason==1u?"PROJECT DATA TOO LARGE":track_save_capacity_reason==2u?"PROJECT PACK TOO LARGE":track_save_capacity_reason==3u?"FLASH SPACE LOW":"STORAGE LIMIT - CHECK"):"STORAGE ERROR",120u,109u,TRACK_WHITE);
   track_pix_center(track_storage_result==TRACK_JOURNAL_OK?
    (track_storage_just_initialized?"INITIALIZED + PROJECT SAVED":"CRC VERIFIED"):
    "NO DATA WRITTEN",120u,131u,TRACK_BRIGHT);
   #if BEETLE_PILOT
   track_pix_center("V0.43 PILOT - OTA READY",120u,178u,TRACK_PINK);
 #endif
+  /* A rejected save is NOT proof of flash exhaustion. Show the exact group
+   * without modifying project state, samples, nor flash ownership. */
+  if(track_storage_result==TRACK_JOURNAL_INVALID && track_save_data_reason){
+   static const char *const messages[]={"", "HEADER / BPM", "SONG CHAIN", "MIXER", "PATTERN / NOTES", "STEP FX", "PUNCH RECORD", "DRUM PARAMETERS", "KIT / SAMPLE TRIM", "MASTER FX", "PUNCH PARAMETERS", "MUTE / SNAPSHOT", "SYNTH PATCH", "INSTRUMENT LIBRARY", "USER SAMPLE BANK", "ENCODER REJECTION", "PROJECT PACK FORMAT", "TARGET SLOT CORRUPT"};
+   uint8_t id=track_save_data_reason;
+   track_pix_center(id<sizeof(messages)/sizeof(messages[0])?messages[id]:"DATA CHECK UNKNOWN",120u,186u,TRACK_PINK);
+  }
+  /* Only show this when a SAVE has failed; no reads while drawing UI.
+   * RC5 used V2-only compression, but most older FM1 volumes still use
+   * TRKJ. Surface that fact instead of hiding it behind a size error. */
+  if(track_storage_result!=TRACK_JOURNAL_OK && track_storage_result!=TRACK_JOURNAL_NO_PROJECT)
+   track_pix_center(track_save_is_legacy?"STORAGE LEGACY / 12K":"STORAGE V2",120u,202u,TRACK_PINK);
   track_pix_center("SEQ TO RETURN",120u,158u,TRACK_WHITE);return;
  }
  if(track_page==13u){
@@ -3625,6 +3750,7 @@ static void track_complete_save(void){
   char owner_title[13];
   int owner_rc=beetle_project_preview_slot(track_state.project_slot,owner_title);
   if(owner_rc!=TRACK_JOURNAL_OK && owner_rc!=TRACK_JOURNAL_NO_PROJECT){
+   if(owner_rc==TRACK_JOURNAL_INVALID)track_save_data_reason=17u;
    track_storage_result=owner_rc;track_page=8u;native_start();return;
   }
  }
@@ -3730,12 +3856,26 @@ static void beetle_project_new_session(void){
  track_init(&track_state);track_state.record_armed=1u;track_punch_rec_armed=0u;track_song_range_on=0u;track_song_rows_clip.valid=0u;beetle_mute_cancel(&track_mute_queue);beetle_live_reset();beetle_snapshots_init(&track_snapshots);track_snapshot_slot=0u;beetle_groups_init(&track_groups);track_group_slot=track_group_lane=0u;track_song_init(&track_song,&track_state);
  beetle_edit_reset(&beetle_ed);
  track_mixer_init(&track_mix);track_drum_init(&track_drum);
+ /* NEW must reset every serialized setting, not just the tracker grid.
+  * Previously the BLUE trim/ADSR arrays survived a project change, and a
+  * zero/invalid trim pair caused PROJECT DATA ERROR on an otherwise NEW song. */
+ track_master_default(&track_master_cfg);
 #if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
  track_drum_kit_index=0u;
+ for(uint8_t j=0u;j<8u;j++)blue_kit_palette[j]=j;
  for(uint8_t j=0;j<TRACK_CHANNELS;j++)blue_lane_kit[j]=0u;
+ for(uint8_t j=0u;j<BEETLE_ONESHOT_NOTES;j++){
+  blue_trim_start[j]=0u;blue_trim_end[j]=100u;
+  blue_adsr[j][0]=0u;blue_adsr[j][1]=50u;
+  blue_adsr[j][2]=100u;blue_adsr[j][3]=50u;
+ }
  blue_lane_overlay=0u;
 #endif
 #if BEETLE_NATIVE_STORAGE
+ /* A NEW project must not inherit ANY staging-only fields from a previous
+  * project or a V2 metadata read.  This memory is idle during NEW and all
+  * state required for the next SAVE is captured afresh. */
+ memset(&beetle_staged,0,sizeof(beetle_staged));
  memset(&beetle_staged.oneshots,0,sizeof(beetle_staged.oneshots));
  beetle_staged.oneshots.first=beetle_oneshots_first;
  beetle_staged.oneshots.second=beetle_oneshots_second;
@@ -3932,14 +4072,23 @@ static uint8_t blue_live_load_position(void){
  if(track_state.transport.playing)return 0u;
 #if BEETLE_NATIVE_STORAGE
  beetle_storage_input_lock();track_storage_busy_kind=2u;
- native_pause();int rc=beetle_project_load_slot(slot);native_start();
- track_storage_busy_kind=0u;
- if(rc!=TRACK_JOURNAL_OK){blue_live_load_error=(uint8_t)(-rc);return 0u;}
+ native_pause();
+ /* Realtime progress is tied to bytes returned by the native V2 reader.
+  * On legacy storage we still display a stable loading modal and status. */
+ blue_live_progress_active=1u;blue_live_progress_percent=0u;
+ blue_live_progress_read_bytes=0u;blue_live_progress_read_target=24576u;
+ track_page=47u;screen();
+ int rc=beetle_project_load_slot(slot);
+ if(rc==TRACK_JOURNAL_OK)blue_live_progress_set(100u);
+ blue_live_progress_active=0u;
+ native_start();track_storage_busy_kind=0u;
+ if(rc!=TRACK_JOURNAL_OK){blue_live_load_error=(uint8_t)(-rc);track_page=45u;return 0u;}
  blue_live_original_loop=track_song.loop;blue_live_loaded_project=1u;
  track_song.loop=0u; /* local to this performance; source project is not saved */
  blue_live.paused=0u;blue_live.ready=1u;blue_live.error=0u;
  track_audio_started=0u;track_audio_first_step_wait=0u;
  beetle_load_input_arm(&track_load_input_guard,etch_ms);
+ track_page=45u;
  return 1u;
 #else
  blue_live_load_error=1u;return 0u;
@@ -4400,12 +4549,27 @@ static void track_fm1_poll(void){
 #if BEETLE_NATIVE_STORAGE
     native_pause();beetle_write_permit=1u;beetle_full_wipe_confirmed=1u;
     track_wipe_result=beetle_hal_wipe_projects(beetle_wipe_erase_progress);
-    beetle_full_wipe_confirmed=0u;beetle_write_permit=0u;native_start();
+    beetle_full_wipe_confirmed=0u;beetle_write_permit=0u;
+    /* Verify mount/CRC with audio still paused. Never perform a blocking
+     * flash read on the restarted audio path immediately after wipe. */
+    if(track_wipe_result==0){
+     /* The old ownership cache may still say FOREIGN after a corrupt index.
+      * Refresh it from the freshly verified marker before the next SAVE. */
+     beetle_storage_last_audit=beetle_hal_probe_ownership_ui();
+     if(beetle_storage_last_audit!=BEETLE_CLAIM_EXISTING)track_wipe_result=-8;
+#if defined(BEETLE_NATIVE_V2) && BEETLE_NATIVE_V2
+     /* Do not claim STORAGE READY if V2 indexing or owner audit failed. */
+     else if(beetle_v2_mode()!=1)track_wipe_result=-9;
+#endif
+    }
+    native_start();
     if(track_wipe_result==0){
      for(uint8_t s=0u;s<TRACK_PROJECTS;s++){
       track_slot_seen[s]=0u;track_load_status[s]=2u;track_load_titles[s][0]=0;
      }
      beetle_project_new_session(); /* detach previously loaded project */
+     blue_live_init(&blue_live);blue_live_dirty=blue_live_save_status=0u;
+     blue_kit_bank_init(&blue_global_kits);
      track_menu_index=0u;
     }
 #else
@@ -4439,7 +4603,12 @@ static void track_fm1_poll(void){
     track_storage_progress_total=(uint8_t)((BEETLE_FLASH_MARKER_END-BEETLE_FLASH_BASE)/BEETLE_FLASH_SECTOR);
     screen();native_pause();
     int fmt=beetle_hal_init_exclusive(beetle_storage_erase_progress);
-    if(fmt==0){track_storage_phase=1u;screen();track_storage_result=beetle_project_save_staged();}
+    if(fmt==0){
+     /* Re-capture after the confirmation wait and formatting. Scratch must
+      * never be trusted across a resumed main loop or flash operation. */
+     beetle_project_capture(track_state.project_slot);
+     track_storage_phase=1u;screen();track_storage_result=beetle_project_save_staged();
+    }
     else track_storage_result=TRACK_JOURNAL_IO;
     track_storage_just_initialized=(uint8_t)(fmt==0 && track_storage_result==TRACK_JOURNAL_OK);
     if(track_storage_result==TRACK_JOURNAL_OK){
@@ -5125,7 +5294,17 @@ static void track_fm1_poll(void){
    changed=1u;
   }
   /* GLO remains the dedicated conventional MIXER shortcut. */
-  if(pressed&(1u<<7)){track_page=track_page==6u?41u:(track_page==41u?0u:6u);changed=1u;}
+  if(pressed&(1u<<7)){
+   if(track_page==6u){
+#if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
+    /* Show the currently selected channel's REAL kit, not the last
+     * kit previously browsed in the component mixer. */
+    blue_drum_mix_kit=beetle_blue_lane_source(blue_lane_kit,track_state.transport.edit_channel);
+#endif
+    track_page=41u;
+   }else track_page=track_page==41u?0u:6u;
+   changed=1u;
+  }
   if(pressed&(1u<<13)){track_rec_since=now?now:1u;track_rec_long=0u;}
   if(released&(1u<<13)){
    if(track_page==3u || track_page==4u){
@@ -5266,7 +5445,7 @@ static void track_fm1_poll(void){
      const struct track_step *dr=&track_state.active.ch[lane][track_state.transport.edit_step];
      const uint8_t drum_id=(col==1u)?track_note2_id(dr):
         (col==2u)?track_state.active.note3[track_state.transport.edit_step]:dr->note;
-     if(drum_id<TRACK_DRUM_NOTE_COUNT)track_drum_trigger(&track_drum,drum_id);
+     if(drum_id<TRACK_DRUM_NOTE_COUNT)blue_trigger_lane_audition(lane,drum_id);
     }
    }
    if(preset && (track_state.transport.edit_column==0u ||
@@ -5418,7 +5597,7 @@ static void track_fm1_poll(void){
 #else
  ch==TRACK_DRUM_CHANNEL
 #endif
- )(void)track_drum_trigger(&track_drum,note);
+ )(void)blue_trigger_lane_audition(ch,note);
       else if((track_patch_live_channel(ch,track_input_instrument[ch]),track_chip_note(&track_chip,ch,
            track_input_instrument[ch],
            note,track_patch_volume_velocity(track_input_instrument[ch],100u)))){
@@ -5516,7 +5695,7 @@ static void track_fm1_poll(void){
      if(pressed_notes){
       fm1_irq_off();
       for(uint8_t k=0u;k<27u;k++)if(pressed_notes&(1u<<k))
-       (void)track_drum_trigger(&track_drum,track_drum_component);
+       (void)blue_trigger_lane_audition(track_state.transport.edit_channel,track_drum_component);
       fm1_irq_enable_all();changed=1u;
      }
     }
@@ -5656,8 +5835,7 @@ static void track_fm1_poll(void){
      if(k2){
       int32_t v=(int32_t)oldfx+k2;
       uint8_t next=(uint8_t)((v%TRACK_FX_COUNT+TRACK_FX_COUNT)%TRACK_FX_COUNT);
-      if(next==TRACK_FX_VOLUME&&oldfx!=TRACK_FX_VOLUME)oldval=100u;
-      if(next==TRACK_FX_DRUM_PITCH&&oldfx!=TRACK_FX_DRUM_PITCH)oldval=12u;
+      oldval=beetle_fx_change_value(oldfx,next,oldval);
       if(!track_fx_slot){
        if(use2){f2->effect=next;f2->value=oldval;}else{st->effect=next;st->value=oldval;}
        /* FX2/FX3 stay independent when FX1 is cleared. */
@@ -5891,6 +6069,12 @@ static void track_fm1_poll(void){
     if(sel){int32_t src=((int32_t)blue_drum_mix_kit+sel)%BLUE_KIT_TOTAL;
      if(src<0)src+=BLUE_KIT_TOTAL;
      blue_drum_mix_kit=(uint8_t)src;
+     /* Mixer kit selection changes the selected CHANNEL's actual audio
+      * source as well; formerly it only changed the mixer preview label. */
+     if(track_state.transport.edit_channel<TRACK_CHANNELS){
+      blue_lane_kit[track_state.transport.edit_channel]=(uint8_t)src;
+      track_state.dirty=1u;
+     }
      blue_drum_mix_component=0u;blue_drum_mix_save_status=0u;changed=1u;
      sel=0;
     }

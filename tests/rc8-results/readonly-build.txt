@@ -1,0 +1,9 @@
+PASS 15 audited upstream HAL/boot hashes verified; USB/OTA excluded from parity claims
+wrote /workspace/scratch/ceb781651a9e/work/BEETLE-BLUE-V1.0.0-RC8-COMPLETE-SOURCE/build/track-fm1-native-test/app.bin: 463496 B, headroom 118068 B
+ OK _start=0x02000120
+ETCH FM-1 app audit: /workspace/scratch/ceb781651a9e/work/BEETLE-BLUE-V1.0.0-RC8-COMPLETE-SOURCE/build/track-fm1-native-test/app.bin
+ OK  _start=0x02000120
+ app: 463496 B / 581564 B, headroom 118068 B
+ entry stub: OK
+PASS linked readonly symbol audit /workspace/scratch/ceb781651a9e/work/BEETLE-BLUE-V1.0.0-RC8-COMPLETE-SOURCE/build/track-fm1-native-test/track-native.elf checked 11 forbidden entries
+Compiled BEETLE BLUE V1.0 RC8 READ-ONLY ; BEETLE persistent storage experimental: False ; updater writes: False ; hardware validation is performed by project maintainer separately.

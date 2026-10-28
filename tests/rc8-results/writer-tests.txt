@@ -1,0 +1,7 @@
+PASS: native C write project, replace global sample, delete and independent project persistence
+PASS: native C writer preserves 12 projects alongside all 13 user samples
+PASS: full storage is refused without a single NOR mutation
+PASS: power cut after every one of 71 native flash mutations; old project and old/new sample recover
+PASS: bounded streaming transfer with 24-byte packets, full CRC and no incomplete publication
+PASS: V2 writer refuses unknown/corrupt superblocks without flash modifications
+PASS RC2: collect orphaned sectors, preserve 12 projects and 13 sample slots, repeated GC no-op

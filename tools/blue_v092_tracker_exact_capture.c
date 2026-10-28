@@ -259,7 +259,7 @@ static void track_fm1_grid(void){
  }
  char pat[32]="PAT ";char num[12];track_u8(num,track_state.pattern_slot+1u);
  pat[4]=num[0];pat[5]=num[1];pat[6]=' ';pat[7]='/';pat[8]=' ';pat[9]='4';pat[10]='8';pat[11]=0;
- track_pix_text(pat,129u,224u,TRACK_PINK);
+ track_pix_text(pat,168u,224u,TRACK_PINK);
  if(drum)track_pix_text(track_drum_note3_enabled?"N3 ON":"N3 OFF",48u,224u,TRACK_BRIGHT);
 
  track_grid_lane_status();

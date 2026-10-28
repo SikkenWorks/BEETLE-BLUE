@@ -1,3 +1,62 @@
+# BEETLE BLUE V1.0.0 RC8 — PROJECT DATA ERROR fix
+
+Gebruik **BEETLE-BLUE-Manager.html** of **BEETLE-BLUE-V1.0.0-RC8-WebInstaller.html**.
+De nieuwe firmware is **BEETLE-BLUE-V1.0.0-RC8-PROJECT-SAVE-FIX.fwsc**.
+Oudere bestanden zijn behouden als referentie; gebruik voor deze fix RC8.
+
+## Oorzaak en correctie
+
+De samplecache en het te bewaren project delen hetzelfde RAM. RC7 riep na
+project-capture/decoding `beetle_bd4_live_invalidate()` aan. Die functie schrijft
+cacheflags en wist chunks/attack-snapshots via de oude pointer. Daarmee werd de
+klaargezette song beschadigd voordat de encoder hem controleerde. De fout is
+op de originele RC7 SAVE-wrapper gereproduceerd: `TRACK_JOURNAL_INVALID`,
+diagnose 4 (PATTERN / NOTES), bij de eerste opslag op lege legacy-opslag.
+Hetzelfde gedeelde pad wordt gebruikt voor Storage V2 en projectimports.
+
+RC8 ontkoppelt de cache met `beetle_bd4_live_bind(0,0u)` zonder projectbytes te
+wijzigen. Na de transactie wordt de cache opnieuw opgebouwd. Capture ontkoppelt
+eerst; eerste opslag na initialisatie maakt een verse capture na de bevestiging
+in plaats van oude scratchdata te vertrouwen. Validatie, capaciteitcontroles,
+CRC, schrijfautorisatie en opslagformaat blijven behouden. Geen extra grote
+RAM-buffer; geen automatische wipe, migratie of projectnormalisatie toegevoegd.
+
+
+Zie RC8-VALIDATION.md voor tests en gebruik.
+
+---
+
+## V1.0.0 RC7 — Fix Legacy-to-V2 wipe and invalid V2 index creation
+
+- **Root cause:** previously Wipe All Storage chose its output layout from the existing marker. Legacy devices remained on 12K TRKJ even after wipe.
+- **Root cause:** invalid B2SB header bytes left as FF made newly formatted V2 storage unreadable; a host flash test reproduced the failure.
+- Double-confirmed wipe now creates and verifies a clean V2 index and V2 owner marker. Existing BEETLE legacy projects/samples/setlists are all erased; NO automatic migration or default formatting.
+- V2 status is independently checked before showing STORAGE READY. Flash bus reads remain outside realtime audio.
+- Real V2 writer save and subsequent readback tested on simulated flash. Real FM1 hardware not validated. Other DATA ERROR causes remain possible.
+
+## V1.0.0 RC6 - Legacy storage error and new-session state fixes
+
+- Fixed legacy TRKJ invalid data being mislabeled as PROJECT TOO FULL.
+- Reset all transient serialization staging memory on NEW project.
+- Report active legacy/V2 backend and differentiate actual capacity from invalid project data, with no flash writes on refusal.
+- Added real journal save/overwrite/load regression test for slots 1 and 2.
+- Experimental hardware status unchanged. No silent formatting, migration or erasure.
+
+## BEETLE BLUE V1.0 RC5 — Project capacity / kit source routing
+
+- New V32 BDR1 sparse step codec eliminates 42-bit fixed cost per populated note when properties are defaults, while retaining V31 and older decode support. Older firmware cannot open V32 projects.
+- Drums: switching KIT from DRUM MIXER changes the currently selected channel, and all stopped preview paths honor that channel source.
+- Added host tests for dense 48-pattern projects, original V31-to-V32 migration, and distinct native PCM from all 14 BEETLE/MONOLITH components.
+- Verified native writable/read-only builds and V2 writer regression tests. Real device flashing, savings and DAC audio remain unverified.
+
+## BEETLE BLUE V1.0 RC4 — NEW defaults, V2 format, Live loading UI
+
+- Reset BLUE sample trims, sample ADSR, MASTER settings and palettes on NEW.
+- Allow explicitly confirmed Wipe All Storage to reformat recognized Storage V2 volumes; fully verify erases and CRC-checked empty index.
+- Refresh ownership after wipe; preserve flash boundary protections.
+- Real V2 read-progress overlay in Perform; right-aligned tracker PAT label.
+- Existing RC3 FX validation/repair kept. Hardware flash/OTA recovery and DMA stability unverified.
+
 ## BEETLE BLUE V1.0 RC2 — safer project save, V2 orphan cleanup and exact error reasons
 
 - Distinguishes **PROJECT DATA TOO LARGE** (BDR1 buffer), **PROJECT PACK TOO LARGE** (12-KiB flash record) and **FLASH SPACE LOW** (physical page/guard capacity). Empty slots do not bypass per-project bounds.
@@ -173,6 +232,16 @@
 - FM1 actual flashing, DMA deadlines, acoustic quality and output peak safety **NOT physically verified**.
 
 # BEETLE BLUE Changelog
+
+## V1.0.0 RC3 — Save DATA ERROR when switching STEP FX types (EXPERIMENTAL)
+
+- Reproduced `PROJECT DATA ERROR` when an FX TYPE change retained a VOLUME value of 200 on an effect whose maximum is 100. Native host test reproduced serializer rejection and confirms clean encoding after correction.
+- Fix FX1, NOTE2 FX, FX2/FX3 type-change values at edit time, with a strictly limited compatibility repair of invalid FX value/type pairs in the **staged SAVE copy**. No mutation to the active song, notes, effect IDs or audio, and no changed flash layout or project schema.
+- If another invalid project field exists, save fails closed and reports a diagnostic field group. This repair cannot prove the specific unsaved hardware project has no additional invalid data.
+- Preserve RC2 safe Storage V2 reclamation, RC1 Setlist/Song fixes, protected header and OTA-loader, all 12 project slots and sample banks.
+- Native writable JieLi app build / audit, `.fwsc` integrity and embedded installer identity, user-data regressions and UBSAN test for FX transitions passed. Physical hardware, DMA and recovery **not tested**.
+- **Do not reboot, power off or flash the FM1 while its current project is unsaved.**
+
 
 ## V0.93 — MONOLITH built directly into firmware
 

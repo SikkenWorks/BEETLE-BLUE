@@ -136,41 +136,107 @@ static int beetle_hal_restore_marker(void){
  * marker is absent or corrupt. This does NOT enable normal journal writes
  * to foreign/unknown data; only this whole-volume reinitialization can
  * erase it. Any flash read error or unknown runtime mode is rejected. */
+/* RC7: physical double-YES Wipe All Storage ALWAYS formats Storage V2
+ * when compiled with BEETLE_NATIVE_V2, including recognized legacy TRKJ.
+ * This is a DESTRUCTIVE FORMAT, never an automatic in-place migration.
+ * Foreign/unknown ownership is still rejected, and boot/OTA are untouched. */
 static int beetle_hal_wipe_projects(void (*progress)(uint8_t,uint8_t)){
+ if(!beetle_write_permit||!beetle_full_wipe_confirmed||
+    native_safe||native_tripped||native_updating)return -1;
+ int use_v2=0;
 #if defined(BEETLE_NATIVE_V2) && BEETLE_NATIVE_V2
- if(beetle_hal_v2_marker_prefix()!=0)return -1;
+ /* Output format is always V2. Input ownership must be recognized first. */
+ use_v2=1;
+ int has_v2_marker=beetle_hal_v2_marker_prefix();
+ if(has_v2_marker<0)return -1;
+ if(has_v2_marker){
+  /* Corrupt superblocks can be reformatted, but the MARKER itself must
+   * still prove BEETLE ownership before touching any sector. */
+  if(beetle_hal_probe_v2_ownership()!=BEETLE_CLAIM_EXISTING)return -1;
+ }else
 #endif
- if(!beetle_write_permit||!beetle_full_wipe_confirmed||native_safe||native_tripped||native_updating)return -1;
- int owner=beetle_hal_probe_ownership();
- if(owner==BEETLE_CLAIM_IO||owner==BEETLE_CLAIM_INVALID)return -1;
- /* FOREIGN and BLANK are allowed ONLY after two physical confirmations.
-  * The region is exactly bounded by compile-time BEETLE_FLASH_* constants. */
+ {
+  int owner=beetle_hal_probe_ownership();
+  /* Only a valid legacy marker or a completely blank area may be taken over.
+   * NEVER erase foreign, damaged-marker, or unreadable storage blindly. */
+  if(owner!=BEETLE_CLAIM_EXISTING&&owner!=BEETLE_CLAIM_BLANK)return -1;
+ }
  const uint8_t total=(uint8_t)((BEETLE_FLASH_MARKER_END-BEETLE_FLASH_BASE)/BEETLE_FLASH_SECTOR);
- const uint8_t verify_size=128u;
- uint8_t checked[128];
- uint8_t done=0u;
- /* Data sectors FIRST. If interrupted, intact ownership remains and user
-  * can retry the wipe; no successful result is reported. Marker LAST. */
+ uint8_t checked[128];uint8_t done=0u;
+ /* The marker sector is erased LAST. If power fails before the commit,
+  * recovery requires an explicit new wipe and never claims successful save. */
  for(uint32_t off=BEETLE_FLASH_BASE;off<BEETLE_FLASH_MARKER_END;off+=BEETLE_FLASH_SECTOR){
   uint32_t took=0u;
   fm1_irq_off();int rc=FL_FAR(fl_erase4k_ram)(off,&took);fm1_irq_enable_all();
   fm1_wdt_feed();if(rc)return -2;
-  for(uint32_t k=0u;k<BEETLE_FLASH_SECTOR;k+=verify_size){
+  for(uint32_t k=0u;k<BEETLE_FLASH_SECTOR;k+=sizeof(checked)){
    if(beetle_hal_abs_read(0,off+k,checked,sizeof(checked)))return -3;
-   for(uint8_t j=0u;j<verify_size;j++)if(checked[j]!=0xFFu)return -3;
+   for(uint8_t j=0u;j<sizeof(checked);j++)if(checked[j]!=0xFFu)return -3;
   }
   done++;
   if(progress&&(done==total||(done%4u)==0u))progress(done,total);
  }
- uint8_t marker[32];beetle_flash_make_marker(marker);
+#if defined(BEETLE_NATIVE_V2) && BEETLE_NATIVE_V2
+ if(use_v2){
+  /* Build the canonical EMPTY B2SB superblock with the same payload and
+   * CRC as Storage V2's read-only parser and Python migration tooling.
+   * The 37K non-realtime staging RAM is free while transport is paused. */
+  uint8_t *index=(uint8_t *)(void *)&beetle_staged,*crcwork=index+4096u;
+  const uint32_t payload=12u*32u+13u*14u;
+  memset(index,0xff,4096u);memset(crcwork,0,16u+payload);
+  /* CRITICAL RC7: B2SB parser requires zero upper bytes of version,
+   * flags, generation and length. RC4-RC6 left those at FF after the
+   * erased-sector fill, so no reader could ever mount the formatted V2! */
+  memset(index+4u,0,16u);
+  memcpy(index,"B2SB",4u);index[4]=1u;index[8]=1u;
+  index[12]=(uint8_t)payload;index[13]=(uint8_t)(payload>>8u);
+  memset(index+20u,0,payload);
+  memcpy(crcwork,index,16u);
+  uint32_t crc=track_store_crc32(crcwork,16u+payload);
+  for(uint8_t k=0u;k<4u;k++)index[16u+k]=(uint8_t)(crc>>(8u*k));
+  memcpy(index+4092u,"B2OK",4u);
+  /* Write full verified superblock BEFORE claiming the volume marker. */
+  for(uint16_t off=0u;off<4096u;off+=256u){
+   uint32_t took=0u;
+   fm1_irq_off();int rc=FL_FAR(fl_prog_ram)(BEETLE_V2_BASE+off,index+off,256u,&took);fm1_irq_enable_all();
+   fm1_wdt_feed();if(rc)return -4;
+  }
+  for(uint16_t off=0u;off<4096u;off+=128u){
+   if(beetle_hal_abs_read(0,BEETLE_V2_BASE+off,checked,sizeof(checked))||
+      memcmp(checked,index+off,sizeof(checked)))return -5;
+  }
+  struct beetle_v2_device v2;
+  if(beetle_v2_open(&v2,beetle_hal_abs_read,0,crcwork)||v2.generation!=1u)return -5;
+ }
+#endif
+ uint8_t marker[32];
+#if defined(BEETLE_NATIVE_V2) && BEETLE_NATIVE_V2
+ if(use_v2)beetle_v2_make_marker(marker);
+ else
+#endif
+ beetle_flash_make_marker(marker);
  uint32_t took=0u;
  fm1_irq_off();int rc=FL_FAR(fl_prog_ram)(BEETLE_FLASH_MARKER,marker,sizeof(marker),&took);fm1_irq_enable_all();
- fm1_wdt_feed();if(rc)return -4;
- if(beetle_hal_probe_ownership()!=BEETLE_CLAIM_EXISTING)return -5;
- /* Read back every bank, including its erased tail, before reporting EMPTY. */
+ fm1_wdt_feed();if(rc)return -6;
+#if defined(BEETLE_NATIVE_V2) && BEETLE_NATIVE_V2
+ if(use_v2){
+  if(beetle_hal_probe_v2_ownership()!=BEETLE_CLAIM_EXISTING)return -7;
+  uint8_t *scratch=(uint8_t *)(void *)&beetle_staged;
+  struct beetle_v2_device d;
+  if(beetle_v2_open(&d,beetle_hal_abs_read,0,scratch))return -7;
+  for(uint8_t slot=0u;slot<TRACK_PROJECTS;slot++){
+   uint8_t *packed=scratch+8192u;uint32_t decoded=0u;
+   if(beetle_v2_project_read(&d,slot,beetle_codec_buffer,sizeof(beetle_codec_buffer),
+       &decoded,scratch,packed,12272u)!=0)return -7;
+  }
+  beetle_storage_last_audit=BEETLE_CLAIM_EXISTING;
+  return 0;
+ }
+#endif
+ if(beetle_hal_probe_ownership()!=BEETLE_CLAIM_EXISTING)return -7;
  for(uint8_t slot=0u;slot<TRACK_PROJECTS;slot++){
   char title[13];
-  if(track_journal_preview(&beetle_hal_journal_io,slot,title)!=TRACK_JOURNAL_NO_PROJECT)return -5;
+  if(track_journal_preview(&beetle_hal_journal_io,slot,title)!=TRACK_JOURNAL_NO_PROJECT)return -7;
  }
  return 0;
 }

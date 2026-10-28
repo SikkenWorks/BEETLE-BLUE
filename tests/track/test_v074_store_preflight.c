@@ -39,7 +39,7 @@ static void should_reject(const char *label){
  const uint32_t r=reads,e=erases,w=programs;
  uint8_t out[TRACK_STORE_MAX];uint32_t len=0;
  assert(track_store_encode(&p,out,sizeof(out),&len)!=0);
- assert(track_journal_save(&io,0,&p,scratch,sizeof(scratch),NULL)==TRACK_JOURNAL_CAPACITY);
+ assert(track_journal_save(&io,0,&p,scratch,sizeof(scratch),NULL)==TRACK_JOURNAL_INVALID);
  assert(reads==r && erases==e && programs==w);
  assert(track_journal_load(&io,0,&loaded,scratch,sizeof(scratch),NULL)==TRACK_JOURNAL_OK);
  assert(loaded.bpm==120u);

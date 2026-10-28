@@ -1,0 +1,4 @@
+BD4S LIVE: 40000 played, 0 delayed, 0 underruns
+PASS six real streaming samplevoices for 44000 frames; reads outside audio only; 0 underruns
+mismatches: 0 first: []
+PASS actual Storage V2 to FM1 BD4S PCM: 40000 samples, exact reference
