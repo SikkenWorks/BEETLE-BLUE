@@ -1,0 +1,25 @@
+===== tests/track/run_v1412.sh =====
+PASS V1.0 RC1: song row insertion after cursor, preserved tails, capacity atomicity, battery policy
+firmware/fm1-native/track_drum.c: In function 'track_drum_render':
+firmware/fm1-native/track_drum.c:685:36: error: 'struct track_drum_voice' has no member named 'reverse'
+  685 |     const uint32_t rev=(uint32_t)(v->reverse&&pcm_count!=0u);
+      |                                    ^~
+FAIL:tests/track/run_v1412.sh
+===== tests/track/run_rc1011_song_chains.sh =====
+firmware/fm1-native/track_drum.c: In function 'track_drum_render':
+firmware/fm1-native/track_drum.c:685:36: error: 'struct track_drum_voice' has no member named 'reverse'
+  685 |     const uint32_t rev=(uint32_t)(v->reverse&&pcm_count!=0u);
+      |                                    ^~
+FAIL:tests/track/run_rc1011_song_chains.sh
+===== tests/track/run_rc1011b_audio_stability.sh =====
+firmware/fm1-native/track_drum.c: In function 'track_drum_render':
+firmware/fm1-native/track_drum.c:685:36: error: 'struct track_drum_voice' has no member named 'reverse'
+  685 |     const uint32_t rev=(uint32_t)(v->reverse&&pcm_count!=0u);
+      |                                    ^~
+FAIL:tests/track/run_rc1011b_audio_stability.sh
+===== tests/track/run_rc1010_storage_workspace.sh =====
+firmware/fm1-native/track_drum.c: In function 'track_drum_render':
+firmware/fm1-native/track_drum.c:685:36: error: 'struct track_drum_voice' has no member named 'reverse'
+  685 |     const uint32_t rev=(uint32_t)(v->reverse&&pcm_count!=0u);
+      |                                    ^~
+Terminated

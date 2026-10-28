@@ -9,6 +9,9 @@
 void beetle_bd4_live_init(void);
 void beetle_bd4_live_bind(void *workspace,uint32_t bytes);
 void beetle_bd4_live_poll(beetle_v2_read read,void *ctx,void (*lock)(void),void (*unlock)(void));
+/* Opportunistic background cache warming ONLY with transport stopped and keys up. */
+void beetle_bd4_live_warm_idle(void);
+uint16_t beetle_bd4_live_hot_mask(void);
 void beetle_bd4_live_invalidate(void);
 int beetle_bd4_live_available(uint8_t slot);
 /* Three-character label, read from verified V2 sample footer during main-loop refresh. */

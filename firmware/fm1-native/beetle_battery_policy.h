@@ -19,4 +19,11 @@ static inline uint8_t beetle_battery_low20(uint16_t adc,uint8_t was_low){
  const uint16_t threshold=BEETLE_BATTERY_20_ADC_RAW;
  return (uint8_t)(threshold>0u && adc<=(uint16_t)(threshold+(was_low?12u:0u)));
 }
+/* Coarse, UNCALIBRATED display segments. Never show an invented percentage. */
+static inline uint8_t beetle_battery_bars(uint16_t adc){
+ if(adc<BEETLE_BATTERY_20_ADC_RAW)return 1u;
+ if(adc<615u)return 2u;
+ if(adc<685u)return 3u;
+ return 4u;
+}
 #endif

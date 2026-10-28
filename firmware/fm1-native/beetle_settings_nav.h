@@ -19,7 +19,7 @@
  * same failure if excluded: the popup is replaced with an empty TRACKER.
  * Keep this whitelist in a testable native header, not the browser. */
 static inline uint8_t beetle_ui_page_valid(uint8_t page){
- return (uint8_t)(page<=30u || page==32u || (page>=33u && page<=42u));
+ return (uint8_t)(page<=30u || page==32u || (page>=33u && page<=46u));
 }
 
 struct beetle_settings_nav {

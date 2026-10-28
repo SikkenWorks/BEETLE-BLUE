@@ -218,6 +218,25 @@ static int beetle_hal_init_exclusive(void (*progress)(uint8_t,uint8_t)){
 static int beetle_v2_hal_read(void *ctx,uint32_t address,uint8_t *data,uint32_t n){
  (void)ctx;return beetle_hal_abs_read(0,address,data,n);
 }
+/* BLUE PRE-RC V0.99.4: audio sample prefetch shares the XIP flash bus
+ * with interrupt instruction fetch. The general 256-byte transaction above
+ * masks IRQs for too long when hit repeatedly by six BD4S streams. Bound
+ * EACH IRQ-masked flash transaction to 32 bytes (8x smaller). The caller
+ * runs only in foreground, never inside ALNK0/DMA; it performs no writes. */
+#define BEETLE_BLUE_LIVE_FLASH_BURST 32u
+static int beetle_v2_live_read(void *ctx,uint32_t address,uint8_t *dst,uint32_t n){
+ (void)ctx;
+ if(!dst || !n || !FL_IN(address,n,BEETLE_FLASH_BASE,BEETLE_FLASH_END))return -1;
+ while(n){
+  uint32_t k=n>BEETLE_BLUE_LIVE_FLASH_BURST?BEETLE_BLUE_LIVE_FLASH_BURST:n;
+  fm1_irq_off();
+  int rc=FL_FAR(fl_read_ram)(address,dst,k);
+  fm1_irq_enable_all();
+  if(rc)return rc;
+  address+=k;dst+=k;n-=k;
+ }
+ fm1_wdt_feed();return 0;
+}
 static int beetle_v2_hal_program(void *ctx,uint32_t address,const uint8_t *data,uint32_t n){
  (void)ctx;
  if(!data||!n||!beetle_write_permit||native_safe||native_tripped||native_updating||

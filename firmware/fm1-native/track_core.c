@@ -230,12 +230,12 @@ int track_pattern_encode(const struct track_pattern *p,uint8_t *dst,uint32_t cap
  for(unsigned c=0;c<TRACK_CHANNELS;c++)for(unsigned st=0;st<16u;st++){
   const struct track_step *s=&p->ch[c][st];
   if((s->note>127u&&s->note!=TRACK_NOTE_STOP&&s->note!=TRACK_NOTE_EMPTY)||s->instrument>7u||
-     s->chord>=(c==TRACK_DRUM_CHANNEL?16u:TRACK_CHORD_COUNT)||s->effect>=TRACK_FX_COUNT||s->value>100u)return -1;
+     s->chord>=(c==TRACK_DRUM_CHANNEL?16u:TRACK_CHORD_COUNT)||s->effect>=TRACK_FX_COUNT||s->value>(s->effect==TRACK_FX_VOLUME?200u:100u))return -1;
   dst[at++]=s->note;dst[at++]=(uint8_t)s->instrument;dst[at++]=(uint8_t)s->chord;
   dst[at++]=(uint8_t)s->effect;dst[at++]=(uint8_t)s->value;dst[at++]=(uint8_t)s->dynamics;dst[at++]=(uint8_t)s->groove;
  }
  for(unsigned st=0u;st<TRACK_STEPS;st++){
-  if(p->note2_fx[st].effect>=TRACK_FX_COUNT||p->note2_fx[st].value>100u)return -1;
+  if(p->note2_fx[st].effect>=TRACK_FX_COUNT||p->note2_fx[st].value>(p->note2_fx[st].effect==TRACK_FX_VOLUME?200u:100u))return -1;
   dst[at++]=p->note2_fx[st].effect;dst[at++]=p->note2_fx[st].value;
  }
  for(unsigned st=0u;st<TRACK_STEPS;st++){
@@ -254,13 +254,13 @@ int track_pattern_decode(struct track_pattern *p,const uint8_t *src,uint32_t len
   s->note=src[at++];s->instrument=src[at++];s->chord=src[at++];
   s->effect=src[at++];s->value=src[at++];s->dynamics=version>=2u?src[at++]:0u;s->groove=version>=3u?src[at++]:0u;
   if((s->note>127u&&s->note!=TRACK_NOTE_STOP&&s->note!=TRACK_NOTE_EMPTY)||s->instrument>7u||
-      s->chord>=(c==TRACK_DRUM_CHANNEL?16u:TRACK_CHORD_COUNT)||s->effect>=TRACK_FX_COUNT||s->value>100u)return -1;
+      s->chord>=(c==TRACK_DRUM_CHANNEL?16u:TRACK_CHORD_COUNT)||s->effect>=TRACK_FX_COUNT||s->value>(s->effect==TRACK_FX_VOLUME?200u:100u))return -1;
  }
  for(unsigned st=0u;st<TRACK_STEPS;st++){
   next.note2_fx[st].value=version>=4u?src[at+1u]:50u;
   next.note2_fx[st].effect=version>=4u?src[at]:0u;
   if(version>=4u)at+=2u;
-  if(next.note2_fx[st].effect>=TRACK_FX_COUNT||next.note2_fx[st].value>100u)return -1;
+  if(next.note2_fx[st].effect>=TRACK_FX_COUNT||next.note2_fx[st].value>(next.note2_fx[st].effect==TRACK_FX_VOLUME?200u:100u))return -1;
  }
  for(unsigned st=0u;st<TRACK_STEPS;st++){
   next.note3[st]=version>=5u?src[at++]:TRACK_NOTE_EMPTY;

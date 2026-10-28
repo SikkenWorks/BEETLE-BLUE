@@ -232,6 +232,53 @@ int beetle_bd4_stream_ready_now(const struct beetle_bd4_stream *s,unsigned ix){
  }
  return (a&&b)?1:0;
 }
+/* FM1 realtime: stream_ready_now()+stream_render(1) redundantly
+ * searched both 128-frame windows twice for every active sample and output
+ * frame. This single-pass function advances ONLY after BOTH source samples
+ * are resident; it never calls into the flash/ADPCM producer. */
+int beetle_bd4_stream_read_one_ready(struct beetle_bd4_stream *s,unsigned ix,int16_t *out){
+ if(!out||!s||ix>=BEETLE_BD4_STREAM_VOICES)return -1;
+ *out=0;
+ struct beetle_bd4_stream_voice *v=&s->voices[ix];
+ if(!v->configured||!v->playing||v->invalid_blocks)return -1;
+ const uint32_t pos=v->output_frames;
+ const uint32_t frame=pos>>1u;
+ if(frame>=v->end_frame){v->playing=0u;return -1;}
+ const uint8_t odd=(uint8_t)(pos&1u);
+ int16_t a=0,b=0;
+ if(odd&&v->interp_valid){a=v->interp_a;b=v->interp_b;}
+ else{
+  uint8_t found_a=0u,found_b=(uint8_t)(frame+1u>=v->frame_count);
+  for(unsigned j=0u;j<BEETLE_BD4_WINDOW_COUNT;j++){
+   const struct beetle_bd4_window *w=&v->windows[j];
+   if(!w->valid)continue;
+   if(!found_a&&frame>=w->first_frame&&frame-w->first_frame<w->count){
+    a=w->pcm[frame-w->first_frame];found_a=1u;
+   }
+   if(!found_b&&frame+1u>=w->first_frame&&frame+1u-w->first_frame<w->count){
+    b=w->pcm[frame+1u-w->first_frame];found_b=1u;
+   }
+  }
+  if(!found_a||!found_b)return 0; /* HOLD: no phase/age loss. */
+  if(frame+1u>=v->frame_count)b=a;
+  if(!odd){v->interp_a=a;v->interp_b=b;v->interp_valid=1u;}
+ }
+ int32_t signal=odd?((int32_t)a+(int32_t)b)/2:(int32_t)a;
+ if(v->in_gap){v->in_gap=0u;v->fade_in=16u;}
+ if(v->fade_in){signal=signal*(int32_t)(17u-v->fade_in)/16;v->fade_in--;}
+ if(v->end_frame-frame<24u)
+  signal=(signal*(int32_t)(v->end_frame-frame))/24;
+ v->output_frames=pos+1u;
+ release_old(v,v->output_frames>>1u);
+ if(v->choke_frames){
+  signal=(signal*(int32_t)v->choke_frames)/48;
+  v->choke_frames--;
+  if(!v->choke_frames)v->playing=0u;
+ }
+ v->last_output=signal;
+ *out=(int16_t)clamp(signal,-32768,32767);
+ return 1;
+}
 void beetle_bd4_stream_render(struct beetle_bd4_stream *s,unsigned ix,int16_t *out,uint32_t n){
  if(!out)return;
  if(!s||ix>=BEETLE_BD4_STREAM_VOICES){memset(out,0,(size_t)n*sizeof(*out));return;}

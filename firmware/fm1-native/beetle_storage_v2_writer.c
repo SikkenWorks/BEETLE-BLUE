@@ -236,6 +236,17 @@ static int commit(struct beetle_v2_writer *w,uint8_t *idx,uint8_t *other){
  w->device.index_address=target;
  return 0;
 }
+/* Setlist is device-global, transactionally saved with the existing CRC
+ * verified V2 index. Its dedicated footer does not overlap BLUE kit bytes
+ * or the bounded (max 128 sample chunks) variable-size index references. */
+int beetle_v2_write_blue_setlist(struct beetle_v2_writer *w,
+ const uint8_t record[64],uint8_t idx[4096],uint8_t other[4096]){
+ if(!w||!record||!idx||!other||memcmp(record,"BLST",4))return -3;
+ int rc=refresh(w,idx,other);if(rc)return rc;
+ if(20u+g32(idx+12)>2610u)return -2;
+ memcpy(idx+2610u,record,64u);
+ return commit(w,idx,other);
+}
 int beetle_v2_write_blue_kits(struct beetle_v2_writer *w,
  const uint8_t kits[BLUE_KIT_WIRE_BYTES],uint8_t idx[4096],uint8_t other[4096]){
  if(!w||!kits||!idx||!other||memcmp(kits,"BBK1",4))return -3;

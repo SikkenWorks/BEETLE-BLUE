@@ -133,7 +133,7 @@ void track_chip_init(struct track_chip_engine *s){
  memset(s,0,sizeof(*s));s->health_cookie=TRACK_CHIP_COOKIE;s->phrase_div_q8=256u;s->punch_bpm=120u;s->realtime_voice_budget=TRACK_CHIP_VOICES;
  for(unsigned i=0;i<16;i++)s->punch_param[i]=50u;
  s->punch_fx_seed=0xA718934Fu;s->punch_focus=255u;
- s->punch_param[1]=20u;s->punch_param[2]=0u;s->punch_param[4]=50u;
+ s->punch_param[1]=20u;s->punch_param[2]=0u;s->punch_param[4]=50u; s->punch_param[5]=100u;s->punch_param[6]=24u;
  for(unsigned i=0;i<TRACK_CHANNELS;i++){s->step_gain[i]=100u;s->fx_type[i]=0u;s->fx_value[i]=50u;s->duty[i]=2u;s->cutoff[i]=96u;s->cut_after[i]=0xFFFFFFFFu;}
  for(unsigned i=0;i<TRACK_CHIP_SLOTS;i++){s->osc_type[i]=(uint8_t)(i==4u?TRACK_CHIP_VA_OSC:i==5u?TRACK_CHIP_VA_OSC2:i==6u?TRACK_CHIP_SID_6581:i==7u?TRACK_CHIP_NES_PULSE:i);track_va_patch_factory((uint8_t)i,&s->patches[i]);
   s->env_attack[i]=(uint8_t)(i==5u?18u:1u);
@@ -752,6 +752,7 @@ void track_chip_process_punch(struct track_chip_engine *s,uint16_t mask,int16_t 
  const int32_t radio_alpha=7+(int32_t)s->punch_param[14]*21/100;
  const int32_t hiss_level=44+(int32_t)s->punch_param[14]*2;
 
+ const int32_t punch_blend_q8=((uint32_t)(s->punch_param[5]>100u?100u:s->punch_param[5])*256u+50u)/100u;
  for(uint32_t f=0u;f<frames;f++){
   const int32_t dry_l=dst[f*2u],dry_r=dst[f*2u+1u];
   int32_t l=dry_l,r=dry_r,wet_l=l,wet_r=r;
@@ -989,6 +990,13 @@ void track_chip_process_punch(struct track_chip_engine *s,uint16_t mask,int16_t 
    }
   }
   if(mask&128u){l=0;r=0;}
+  /* Global Punch BLEND (0..100%): the final effect chain is crossfaded
+   * against its untouched stereo input, not one effect's internal wetness.
+   * This works with multiple Punch effects and needs no extra buffer. */
+#if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
+  l=(dry_l*(256-punch_blend_q8)+l*punch_blend_q8)>>8u;
+  r=(dry_r*(256-punch_blend_q8)+r*punch_blend_q8)>>8u;
+#endif
   dst[f*2u]=(int16_t)punch_clip(l);
   dst[f*2u+1u]=(int16_t)punch_clip(r);
   /* Freeze capture only for REPEAT / TAPE. Ring Mod and STUTTER

@@ -11,6 +11,13 @@
  * generation. The PCM voice windows are separately bounded. */
 struct live_chunk {uint32_t generation;uint16_t part;uint8_t slot,valid;};
 struct live_note {volatile uint32_t serial;volatile uint8_t pending,slot;uint8_t starting,trim_start,trim_end;};
+/* Keep a fully decoded, CRC-generation-pinned 256-frame ATTACK snapshot for
+ * each user slot. The entire decoder cursor (not just the first PCM pages)
+ * is captured, so a warm retrigger resumes without skipping later blocks.
+ * Rebuilt on demand if trim or sample generation changes. All cache writes
+ * are main-context operations; the audio ISR never sees this array. */
+struct live_attack { struct beetle_bd4_stream_voice prime;
+ uint32_t generation;uint8_t valid,trim_start,trim_end; };
 /* The existing project staging region is used only when NO project load,
  * save, preview or sample-transfer operation is in flight. This ownership
  * contract is enforced by the caller; the audio DMA is paused on reuse. */
@@ -18,6 +25,9 @@ struct live_runtime {
  struct beetle_bd4_stream stream;
  struct live_chunk chunks[BEETLE_BD4_STREAM_VOICES];
  struct live_note notes[BEETLE_BD4_STREAM_VOICES];
+ struct live_attack attack[BEETLE_BD4_STREAM_SLOTS];
+ struct beetle_bd4_stream warm_stream;
+ uint8_t warm_slot,warm_active;
  struct beetle_v2_sample slots[BEETLE_BD4_STREAM_SLOTS];
  char labels[BEETLE_BD4_STREAM_SLOTS][4];
  struct beetle_v2_device device;
@@ -45,7 +55,8 @@ void beetle_bd4_live_bind(void *workspace,uint32_t bytes){
 void beetle_bd4_live_init(void){
  if(live_rt)beetle_bd4_live_bind(live_rt,sizeof(*live_rt));
 }
-void beetle_bd4_live_invalidate(void){if(live_rt){live_refresh=1u;live_valid=0u;live_rt->cached_valid=0u;
+void beetle_bd4_live_invalidate(void){if(live_rt){live_refresh=1u;live_valid=0u;live_rt->cached_valid=0u;live_rt->warm_active=0u;
+  memset(live_rt->attack,0,sizeof(live_rt->attack));
   memset(live_chunks,0,sizeof(live_chunks));}}
 const char *beetle_bd4_live_label(uint8_t slot){
  return live_rt&&slot<BEETLE_BD4_STREAM_SLOTS&&live_valid&&live_rt->labels[slot][0]?live_rt->labels[slot]:0;
@@ -70,29 +81,26 @@ int beetle_bd4_live_next(uint8_t voice,uint32_t serial,int16_t *sample){
  struct live_note *n=&live_notes[voice];
  if(n->serial!=serial)return -1;
  if(n->pending||n->starting)return 0;
- /* V1.5: the old first-step fix only held BEFORE stream_start().
-  * The very next PCM window can still arrive too late on flash;
-  * rendering a missing frame would advance output_frames and discard the
-  * initial portion of the sample. Return PENDING so the drum renderer also
-  * holds its phase/age/envelope. Retry the exact source frame after refill. */
- int ready=beetle_bd4_stream_ready_now(&live_stream,voice);
- if(ready<0)return -1;
- if(!ready)return 0;
- beetle_bd4_stream_render(&live_stream,voice,sample,1u);
- return 1;
+ /* Combined window availability + PCM read, with no duplicated per-frame
+  * window scan. A cache miss holds the musical cursor until foreground
+  * prefetch fills RAM; neither decoding nor flash I/O runs in the DMA ISR. */
+ return beetle_bd4_stream_read_one_ready(&live_stream,voice,sample);
 }
 void beetle_bd4_live_stop(uint8_t voice){
  if(!live_rt||voice>=BEETLE_BD4_STREAM_VOICES)return;
+ /* An audio IRQ can interrupt the main-loop DPCM decoder halfway
+  * through filling a PCM window. Never mutate that decoder from IRQ.
+  * Mark the note stopped; main-loop poll performs the stream choke. */
  live_notes[voice].serial=0u;
  live_notes[voice].pending=0u;
  live_notes[voice].starting=0u;
- beetle_bd4_stream_choke_voice(&live_stream,voice);
 }
 void beetle_bd4_live_choke_all(void){
  if(!live_rt)return;
  for(unsigned i=0;i<BEETLE_BD4_STREAM_VOICES;i++){
+  live_notes[i].serial=0u;
   live_notes[i].pending=0u;live_notes[i].starting=0u;
-  beetle_bd4_stream_choke_voice(&live_stream,i);
+  /* Deferred decoder cleanup occurs in the background poll. */
  }
 }
 uint8_t beetle_bd4_live_start_pending(void){
@@ -173,7 +181,8 @@ void beetle_bd4_live_poll(beetle_v2_read read,void *ctx,void (*lock)(void),void 
  if(!read||!live_rt||!lock||!unlock)return;
  if(live_refresh){
   /* Installation/migration required: refuses the legacy layout. */
-  live_valid=0u;live_rt->cached_valid=0u;memset(live_chunks,0,sizeof(live_chunks));memset(live_slots,0,sizeof(live_slots));memset(live_rt->labels,0,sizeof(live_rt->labels));
+  live_valid=0u;live_rt->cached_valid=0u;live_rt->warm_slot=0u;live_rt->warm_active=0u;
+  memset(live_rt->attack,0,sizeof(live_rt->attack));memset(live_chunks,0,sizeof(live_chunks));memset(live_slots,0,sizeof(live_slots));memset(live_rt->labels,0,sizeof(live_rt->labels));
   if(beetle_v2_open(&live_device,read,ctx,live_index)==0){
    live_valid=1u;
    for(uint8_t i=0;i<13u;i++){
@@ -196,21 +205,63 @@ void beetle_bd4_live_poll(beetle_v2_read read,void *ctx,void (*lock)(void),void 
   live_refresh=0u;
  }
  if(!live_valid)return;
+ /* Finish stopped voices on the producer side. This avoids the IRQ
+  * interrupting prefetch in the middle of modifying a stream/window. */
+ for(unsigned i=0u;i<6u;i++){
+  lock();
+  if(!live_notes[i].serial && !live_notes[i].pending &&
+     live_stream.voices[i].configured){
+   beetle_bd4_stream_choke_voice(&live_stream,i);
+   /* A stopped stream must not consume background flash bandwidth. */
+   live_stream.voices[i].configured=0u;
+   live_stream.voices[i].playing=0u;
+  }
+  unlock();
+ }
  for(unsigned i=0;i<6u;i++){
   struct live_note *n=&live_notes[i];
-  if(n->pending){
-   uint32_t seq=n->serial;uint8_t slot=n->slot;
-   n->pending=0u;
-   live_chunks[i].valid=0u;live_rt->cached_valid=0u;
+  /* Snapshot and acknowledge a request atomically. An ISR retrigger
+   * between reading pending and clearing it previously lost the NEW note.
+   * Never leave IRQs masked across storage reads or DPCM decode. */
+  lock();
+  const uint8_t pending=n->pending;
+  const uint32_t seq=n->serial;
+  const uint8_t slot=n->slot;
+  if(pending)n->pending=0u;
+  unlock();
+  if(pending){
+   /* Rapid retrigger of an unchanged sample MUST NOT invalidate the
+    * pinned/CRC-verified sector: repeated 4KiB reads and full CRCs
+    * can starve the cooperative prefetch path while audio DMA runs. */
+   if(!beetle_bd4_live_available(slot) || !live_chunks[i].valid ||
+      live_chunks[i].slot!=slot ||
+      live_chunks[i].generation!=live_slots[slot].generation){
+    live_chunks[i].valid=0u;
+    if(live_rt->cached_voice==i)live_rt->cached_valid=0u;
+   }
    if(!beetle_bd4_live_available(slot)){
     n->starting=0u;n->serial=0u;continue;
    }
+   /* ISR is gated by starting=1 or pending=1 for this sequence. Restore
+    * the attack outside the IRQ-masked section; 748-byte copies must not
+    * monopolize DMA scheduling. Re-check sequence before publication. */
+   struct live_attack *a=&live_rt->attack[slot];
+   const uint8_t trim_start=n->trim_start,trim_end=n->trim_end;
+   const uint8_t hot=(uint8_t)(a->valid &&
+     a->generation==live_slots[slot].generation &&
+     a->trim_start==trim_start && a->trim_end==trim_end);
+   if(hot){
+    memcpy(&live_stream.voices[i],&a->prime,sizeof(a->prime));
+   }else{
+    int prepare=beetle_bd4_stream_prepare_pinned(&live_stream,i,slot,
+      live_slots[slot].byte_length,live_slots[slot].generation);
+    if(prepare){n->starting=0u;n->serial=0u;continue;}
+    beetle_bd4_stream_trim(&live_stream,i,trim_start,trim_end);
+   }
    lock();
-   int prepare=beetle_bd4_stream_prepare_pinned(&live_stream,i,slot,
-     live_slots[slot].byte_length,live_slots[slot].generation);
+   if(n->serial!=seq || n->pending){unlock();continue;}
+   if(hot && beetle_bd4_stream_start(&live_stream,i))n->starting=0u;
    unlock();
-   if(prepare){n->starting=0u;n->serial=0u;continue;}
-   beetle_bd4_stream_trim(&live_stream,i,n->trim_start,n->trim_end);
    /* An IRQ may have retriggered the same drum voice during this setup.
     * Its newer serial/pending flag must win. */
    if(n->serial!=seq||n->pending)continue;
@@ -220,13 +271,85 @@ void beetle_bd4_live_poll(beetle_v2_read read,void *ctx,void (*lock)(void),void 
  for(unsigned i=0;i<6u;i++){
   struct live_note *n=&live_notes[i];
   if(n->starting&&!n->pending){
+   /* Cache copy is FOREGROUND-only and is deliberately OUTSIDE the IRQ
+    * critical section. The producer has not published starting=0 yet. */
+   if(n->pending || !n->serial)continue;
+   struct beetle_bd4_stream_voice *v=&live_stream.voices[i];
+   if(v->configured && v->verified_header &&
+      v->windows[0].valid &&
+      (v->windows[1].valid||v->frame_count<=BEETLE_BD4_WINDOW_FRAMES) &&
+      v->slot<BEETLE_BD4_STREAM_SLOTS && v->generation==live_slots[v->slot].generation){
+    struct live_attack *a=&live_rt->attack[v->slot];
+    /* Snapshot is never read from IRQ. Retain the immutable first two
+     * windows and decoder continuation state before starting playback. */
+    a->valid=0u;
+    memcpy(&a->prime,v,sizeof(*v));
+    a->generation=v->generation;
+    a->trim_start=v->trim_start_percent;a->trim_end=v->trim_end_percent;
+    a->valid=1u;
+   }
    lock();
-   if(beetle_bd4_stream_start(&live_stream,i))n->starting=0u;
-   else if(!live_stream.voices[i].configured || live_stream.voices[i].invalid_blocks){
-    /* Malformed/replaced samples must not hold transport start forever. */
-    n->starting=0u;n->serial=0u;
+   /* The IRQ can retrigger at any point during the foreground cache copy.
+    * Start only the serial that survived the entire snapshot operation. */
+   if(!n->pending && n->serial){
+    if(beetle_bd4_stream_start(&live_stream,i))n->starting=0u;
+    else if(!live_stream.voices[i].configured || live_stream.voices[i].invalid_blocks){
+     n->starting=0u;n->serial=0u;
+    }
    }
    unlock();
   }
  }
+}
+
+/* PRE-RC V0.99.4: Prewarm immutable start windows in foreground while STOPPED.
+ * All thirteen installed U-slots are scanned incrementally (at most ONE
+ * 128-frame window per invocation), never in DMA and never during playback.
+ * Thereafter any lane/voice can instantaneously restore its cached first
+ * 256 frames and the exact ADPCM decoder continuation cursor. The 13 caches
+ * live in the existing V2 project staging workspace; no new .bss/.pool RAM.
+ */
+void beetle_bd4_live_warm_idle(void){
+ if(!live_rt || !live_valid || live_refresh)return;
+ for(unsigned v=0u;v<BEETLE_BD4_STREAM_VOICES;v++)
+  if(live_notes[v].pending || live_notes[v].starting ||
+     live_stream.voices[v].playing)return;
+ while(live_rt->warm_slot<BEETLE_BD4_STREAM_SLOTS){
+  uint8_t slot=live_rt->warm_slot;
+  if(!live_slots[slot].generation){live_rt->warm_slot++;live_rt->warm_active=0u;continue;}
+  struct live_attack *a=&live_rt->attack[slot];
+  if(a->valid && a->generation==live_slots[slot].generation){
+   live_rt->warm_slot++;live_rt->warm_active=0u;continue;
+  }
+  if(!live_rt->warm_active){
+   beetle_bd4_stream_reset(&live_rt->warm_stream);
+   if(beetle_bd4_stream_prepare_pinned(&live_rt->warm_stream,0u,slot,
+       live_slots[slot].byte_length,live_slots[slot].generation)){
+    live_rt->warm_slot++;continue;
+   }
+   beetle_bd4_stream_trim(&live_rt->warm_stream,0u,0u,100u);
+   live_rt->warm_active=1u;
+  }
+  (void)beetle_bd4_prefetch_poll_pinned(&live_rt->warm_stream,live_read,0,1u);
+  struct beetle_bd4_stream_voice *v=&live_rt->warm_stream.voices[0];
+  if(v->configured && v->verified_header && v->windows[0].valid &&
+     (v->windows[1].valid||v->frame_count<=BEETLE_BD4_WINDOW_FRAMES)){
+   a->valid=0u;memcpy(&a->prime,v,sizeof(*v));
+   a->generation=v->generation;a->trim_start=0u;a->trim_end=100u;
+   a->valid=1u;live_rt->warm_active=0u;live_rt->warm_slot++;
+  }else if(!v->configured || v->invalid_blocks){
+   live_rt->warm_active=0u;live_rt->warm_slot++;
+  }
+  break; /* strictly one decode/fetch window per cooperative foreground pass */
+ }
+}
+/* Read-only diagnostics: one bit per resident sample attack cache. */
+uint16_t beetle_bd4_live_hot_mask(void){
+ if(!live_rt)return 0u;
+ uint16_t bits=0u;
+ for(unsigned i=0u;i<BEETLE_BD4_STREAM_SLOTS;i++)
+  if(live_rt->attack[i].valid &&
+     live_rt->attack[i].generation==live_slots[i].generation)
+   bits|=(uint16_t)(1u<<i);
+ return bits;
 }

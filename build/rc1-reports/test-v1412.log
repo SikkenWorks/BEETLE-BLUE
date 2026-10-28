@@ -1,0 +1,4 @@
+PASS V1.0 RC1: song row insertion after cursor, preserved tails, capacity atomicity, battery policy
+DRUM SINGLE CRC 4d939c655ae2e253
+DRUM DOUBLE CRC 3f48be35ec376685
+PASS Song -- STOP, explicit empty sustain, row copy, V26 CRC and 128 dense drum loops

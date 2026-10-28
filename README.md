@@ -16,7 +16,7 @@
 </p>
 
 <p align="center">
-  <sub>Development release: <strong>V0.99 EXPERIMENTAL</strong> · <a href="CHANGELOG.md">Release history</a> · <a href="validation/V0.99-RESULTS.md">Software validation</a></sub>
+  <sub>Development release: <strong>V1.0 RC1 (EXPERIMENTAL)</strong> · <a href="CHANGELOG.md">Release history</a> · <a href="validation/V1.0-RC1-RESULTS.md">Software validation</a></sub>
 </p>
 
 ---
@@ -31,36 +31,55 @@
 
 **BEETLE BLUE** is the drum-focused fork of [BEETLE](https://github.com/SikkenWorks/BEETLE) for the **M-VAVE FM1**. Instead of BEETLE's five synth lanes and one drum lane, BLUE routes its six sequencer lanes to drums. BEETLE BLUE is derived from the BEETLE V1.7.14 code base; its retained project, storage, effects, USB and OTA code should not be confused with features independently validated on real hardware.
 
-| Feature | BEETLE BLUE V0.99 |
+| Feature | BEETLE BLUE V1.0 RC1 |
 | :-- | :-- |
-| **Drum lanes** | 6 independent sequencer lanes; each has a project-saved kit assignment |
+| **Drum lanes** | 6 independent sequencer lanes; each has an authoritative project-saved kit assignment |
 | **Patterns** | 48 patterns, up to 16 steps per pattern |
 | **Song Mode** | Up to 64 chain positions |
 | **Built-in kit: BEETLE** | Original 14-sound PCM/µ-law ROM drum kit |
 | **Built-in kit: MONOLITH** | 16 distinct procedural ROM drum patches at 44.1 kHz, inspired by the supplied MONOLITH WAVs |
 | **Global User Kits** | 12 saved timbre-preset slots (not 12 separate WAV banks) |
-| **Kit Designer** | 8 project kit references (`INST 1–8`) and kit selection per lane |
+| **Kit Designer** | 8 saved project kit references (`INST 1–8`); kit selection per lane is authoritative in playback |
 | **Global user samples** | U01–U13; optional and independent of the two built-in ROM kits |
+| **Usersample playback** | Per-slot RAM-prewarmed attacks, self-choke and faster DMA ISR window reads; long tails still stream |
 | **Sample editing** | START / END, ADSR, GAIN, DRIVE and CHOKE for user samples |
 | **Mixing** | Lane Mixer and kit-specific Drum Mixer |
 | **Performance** | Punch-In FX, groove controls, mute groups, snapshots, REV step FX and Song Mode |
-| **Project storage** | 12 device project slots; `BDR1` schema **V30**; `.bdrum` backup files |
+| **Project storage** | 12 device project slots; `BDR1` schema **V31** (reads V30 and earlier supported versions); `.bdrum` backup files |
 | **USB audio** | Inherited experimental stereo and six-mono-stem capture paths |
 | **UI** | Blue native LCD theme and C-rendered 1920 × 1920 reference captures |
 
-### V0.94: core audio stability fix
+### V1.0 RC1: corrected Setlist and Song Chain clipboard
 
-When BLUE omitted the original synthesizer renderer, it also skipped the operation that cleared the stereo PCM output buffer. The drum renderer **adds** drum audio to that buffer. In earlier BLUE builds, an uncleared buffer could therefore contain samples from the previous DMA block and lead to accumulating audio, distortion and incorrect sound from **both** kits.
+- **Empty Setlist:** HOME returns to Live Mode even when there are **no saved projects**. SELECT and OCT+ cannot create phantom P01 slots. Project selection requires a recognized saved slot, scanned incrementally. A failed write never silently marks an edited setlist as saved; a second HOME deliberately exits with an **UNSAVED** notice visible in Live Mode, keeping its edits in RAM for retry. Unchanged empty setlists never write flash.
+- **Song Chain copy/paste:** on the SONG CHAIN page, hold SEQ and press OP1 to copy the selected row or an inclusive SEL+K1 range. Put the cursor on the desired existing song position and press **SEQ+OP2** to **insert the copied rows immediately AFTER the cursor**. Existing rows move down and remain unchanged; a capacity failure (64 positions maximum) rejects the entire operation and briefly shows `CHAIN FULL - PASTE CANCELLED`. The first newly inserted row is selected. Undo/Redo remains available through existing editing history.
+- **Compatibility:** BDR1 V31, persistent 12 project slots, 24-entry Live Setlist and separate Song Chain remain unchanged. No new storage partition, project migration or automatic formatting is introduced.
 
-**V0.94 explicitly zeros each destination PCM block before mixing the drums.** It also avoids unnecessary work for inactive voices, calculates EQ gains once per render chunk and reduces expensive arithmetic in the sample loop. The native build and host tests pass, but the reported physical double-kick DMA failure is **not yet proven resolved on the FM1**.
+### Live Mode: project setlists (V1.0 RC1)
 
-### V0.99: stereo headroom and realtime efficiency
+At power-on the FM1 offers three independent choices: **NEW PROJECT**, **LOAD PROJECT**, and **LIVE MODE**. You can also open **HOME → LIVE MODE** at any time from the normal Projects menu (between SETTINGS and DIAGNOSTICS). LIVE MODE opens **SETLIST** or **PERFORM**; it is separate from the existing per-project 64-position Song Chain.
 
-V0.99 adds a bounded soft-knee to the final six-lane stereo drum mix, reducing hard-clipping edges on dense patterns while leaving ordinary levels unchanged. It also simplifies exact pitch-table math and two bounded per-voice multiplications to reduce 64-bit operations in realtime code. These changes passed native host regression tests; actual peak behavior and DMA timing still require measurement on an FM1.
+- **SETLIST** holds up to **24 song positions**, each referencing one of the existing **12 project slots** (the same project can appear more than once). Turn **K1** to select a setlist position, **K2** to assign a project slot, **K4** to move that position up/down, **OCT+** to insert a position, **OCT−** to delete one. **HOME** goes back to the LIVE MODE menu (with silent autosave when changed). Press HOME again to return to the normal HOME/PROJECTS menu. This same nested HOME route applies whether LIVE MODE was opened at boot or through HOME. The setlist **automatically saves on leaving SETLIST** with HOME or SEL-to-Perform. Successful saves are visually silent. Unmodified setlists do not incur needless NOR writes. If saving fails, SETLIST stays open, keeps all RAM edits and displays an error. SAVE can also manually retry. The setlist is never saved as part of an individual BDR1 project.
+- **PERFORM** loads the first project's complete settings, including its own BPM, instruments, drum kits, patterns and Song Chain. Press **PLAY/STOP** to start. The current song runs once, ignoring its saved Song Chain loop flag only for this performance. On the last Song Chain position, or after the selected pattern if SONG is off, playback stops, and the next project is CRC-loaded in the foreground. **The next song remains stopped until you press PLAY/STOP again.** No project loading or flash access occurs in the audio interrupt.
+- If **PLAY/STOP** is pressed while a live performance is playing, BEETLE BLUE stops and displays **CONTINUE CURRENT TRACK** or **START CURRENT TRACK AGAIN**. Turn **K1** to select; **SEL** resumes at the saved step / Song Chain position or restarts the whole song. **HOME** returns to the LIVE MODE menu; a second HOME returns to the normal HOME/PROJECTS menu.
+- **Persistence requirement:** a setlist can be saved/recalled across restarts on an existing, valid **Storage V2** volume. Older journal-only volumes can edit in RAM, but automatic save fails and the editor stays open with an error instead of exiting and silently losing changes; this release does **not** auto-provision V2 storage. Back up projects and samples before any firmware update. There is no automatic storage migration.
+- **Caveat:** the full Live Mode workflow and NOR A/B saves are software-tested only. Real FM1 audio transitions, project-load latency, power-loss behaviour and loudness must be validated on hardware before using Live Mode on stage.
+
+### Battery HUD (V1.0 RC1)
+
+A small **BLUE pixel battery symbol** is drawn at the lower-right of the TRACKER, above the PAT counter, and in its own upper-right band in LIVE / PERFORM. The fill has four broad stages from the FM1 battery ADC (PB1), read only every four seconds in the foreground. It **does not show an invented percentage**; the real FM1 ADC divider and lithium-battery discharge curve are not calibrated. A blue bolt beside the battery indicates an active **enumerated USB data connection**, **not confirmed battery charging**. Some USB wall chargers will not be detected and an enumerated USB connection does not prove current is flowing into the cell. Accurate charging/full indication requires a verified charging-status or VBUS hardware signal, which is unavailable in this source. This limitation is deliberate: do not trust the bolt as an indication of charging or battery capacity during a concert.
+
+The HUD uses reserved LCD rectangles: TRACKER `x=204..235, y=208..217`, PERFORM `x=204..235, y=53..62`. Those do not cover PAT text, lane dots, chord hint, saved-toast caption or Perform titles. New Live Mode native C screen captures are provided. This is **not** an exhaustive real-device visual proof across every screen.
+
+### Audio engine and efficiency
+
+BEETLE BLUE has an independent six-lane native drum mixer, including BEETLE PCM and MONOLITH procedural instruments. The final stereo bus uses a bounded soft knee to reduce hard-clipping risk. Idle voices skip unnecessary DSP. Native PCM comparisons verify that all 14 shared BEETLE and MONOLITH components render different audio, although their perceived similarity still needs listening evaluation. For uploaded U01–U13 samples, the initial attack is predecoded into RAM while stopped, and hot retriggers restore the attack without fresh flash reads. Each uploaded U-slot now self-chokes when retriggered, with a short voice fade; BEETLE/MONOLITH hats choke one another. Long samples still stream from Storage V2 and must be hardware-stress-tested. Sample requests use interrupt-safe acknowledgement, deferred decoder stop and a single-pass resident-frame read; real FM1 DAC peak levels, sample streaming glitches and DMA deadline margins **still require hardware measurement**. V0.99.4 exhibited a confirmed DMA DEADLINE with rapid sample triggers; V0.99.5 is not yet proven to solve it. Version-by-version implementation notes are recorded only in the [CHANGELOG](CHANGELOG.md).
 
 ### Step FX controls
 
-From the tracker, select a drum step, focus its **FX** column with K2, and **press/release FX** to open **PER STEP FX** for that exact lane and step. A long FX hold remains the Punch-In modifier. In the editor: **K1** selects FX1/FX2/FX3, **K2** selects the effect type, **K3** adjusts its value, **OCT+** advances to the next effect slot, and **OCT−** deletes the selected effect. FX1–FX3 can be combined in order. REV is an ON/OFF action, not a numeric control.
+From the tracker, select a drum step, focus its **FX** column with K2, and **press/release FX** to open **PER STEP FX** for that exact lane and step. **Double-tap FX** to open the Punch-In FX menu. A long FX hold remains the Punch-In modifier. In the editor: **K1** selects FX1/FX2/FX3, **K2** selects the effect type, **K3** adjusts its value, **OCT+** advances to the next effect slot, and **OCT−** deletes the selected effect. FX1–FX3 can be combined in order. REV is an ON/OFF action, not a numeric control. **VOLUME ranges from 0% to 200%.**
+
+The selected source kit is authoritative per lane on CH1–CH6, including Song Mode. Historic step `INST` values remain stored for compatibility, but no longer silently override the lane kit. The Kit Designer palette remains persisted; per-step source overrides are suspended until they have an explicit, unambiguous opt-in mechanism.
 
 The drum-oriented effects are FILTER, DRIVE, DELAY, REVERB, CHORUS, VIB, ARP, CUT, TREMOLO, VOLUME, PITCH and REV. All twelve effect identifiers now reach the native BEETLE/MONOLITH drum engine since V0.97. Delay/reverb/chorus are **short, bufferless ROM-tap effects for PCM** and **lightweight tonal approximations for procedural MONOLITH**, not a long-delay or convolution reverb. Storage V2 streaming samples have no PCM random-access history and do **not** support literal delay/reverb/chorus taps or streamed REV. For these sources full FX parity remains a future RC gate.
 
@@ -76,7 +95,7 @@ Select **REV** in a drum step's FX column to reverse only that step's triggered 
 
 ### MONOLITH
 
-**MONOLITH is built into V0.94.** No WAV import, `.beetlebank`, Project Manager upload or Storage V2 sample slot is required to hear its 16 drum sounds. Its audio is generated by its own **procedural ROM-based drum engine**, using fixed tone/noise settings and a small wavetable. This is **not** the earlier V0.93 8 kHz ADPCM samplebank, and it is not bit-identical to the 16 source WAVs.
+**MONOLITH is built into V0.94.** No WAV import, `.beetlebank`, Project Manager upload or Storage V2 sample slot is required to hear its 16 drum sounds. Its audio is generated by its own **procedural ROM-based drum engine**, using distinct oscillator shapes, tone/noise settings and a small wavetable. This is **not** the earlier V0.93 8 kHz ADPCM samplebank, and it is not bit-identical to the 16 source WAVs.
 
 | Components | MONOLITH character | Reference WAV(s) |
 | :-- | :-- | :-- |
@@ -100,7 +119,8 @@ The 16 original MONOLITH WAVs are retained in the source archive as development/
 6. **Set tempo and play:** turn **K4** in the tracker to adjust BPM, then press **PLAY/STOP**.
 7. **Edit drums:** press **EDIT** to open **DRUM EDIT**; press EDIT again for **KIT DESIGNER**. Use the context labels on the FM1 display.
 8. **Mix:** press **GLO** for the Lane Mixer, then **GLO again** for the Drum Mixer.
-9. **Arrange and save:** press **ARP** for Song Mode and use **SAVE / HOME** for project operations. Back up before changing firmware or storage.
+9. **CH6 extra hits:** NOTE3 mode retains step-FX playback. The former KIT tracker field is now **RAT** (ratchet/retrigger count).
+10. **Arrange and save:** press **ARP** for Song Mode and use **SAVE / HOME** for project operations. Back up before changing firmware or storage.
 
 > **Control terminology:** **SELECT** means the rotary encoder; **SEL** means pressing that encoder. The behavior of a knob can vary by screen. Holding **SEQ** while turning SELECT is different from pressing SEL.
 
@@ -128,7 +148,7 @@ From **DRUM EDIT**, press **EDIT** to enter **KIT DESIGNER**.
 | **EDIT** | Return to DRUM EDIT |
 | **SEQ** | Return to the tracker |
 
-A global User Kit stores settings such as Attack, Decay, Sustain, Release, Gain, Pitch, Drive and Choke for the factory drum components. It **does not** include 16 copied MONOLITH WAV files or its own sample bank. The project palette still allows per-step kit references using the tracker instrument field. The lane-selected kit supplies the default where the step uses the lane's normal instrument value; other `INST` values can reference the eight-entry palette. CH6 additionally has inherited NOTE2/NOTE3 behavior, so do not assume every subhit has a separate, fully independent kit selection.
+A global User Kit stores settings such as Attack, Decay, Sustain, Release, Gain, Pitch, Drive and Choke for the factory drum components. It **does not** include 16 copied MONOLITH WAV files or its own sample bank. The Kit Designer palette remains stored for project compatibility, but native playback uses the explicitly selected kit of each lane. Legacy per-step `INST` values do not silently replace that kit. CH6 retains its independent NOTE2/NOTE3 drum hits.
 
 ### Global-kit backup limitation
 
@@ -160,15 +180,16 @@ Pressing **GLO** cycles through **Lane Mixer → Drum Mixer → Tracker**.
 
 ### FX and Punch-In
 
-- **Short FX press, then release:** opens the FX menu on release.
+- **Short FX press/release:** opens the focused step FX editor. **Double-tap FX:** opens Punch-In FX.
 - **Hold FX and press keyboard keys:** activates momentary **Punch-In FX** without navigating away to the menu.
+- **Punch-In BLEND:** K1 controls global 0–100% dry/wet. **PITCH:** K1 adjusts −24 to +24 semitones on the native ROM/PCM drum voices. Storage V2 streamed BD4S user samples currently remain fixed-pitch.
 - **Overlay behavior:** shows the last activated effect that is still held. Releasing that effect reveals the previously pressed effect if it remains active.
 - Punch-In FX, Song Mode, groove/dynamics editors, mute groups, snapshots and other retained BEETLE performance tools are available where implemented in native BLUE. Timing and physical key combinations still need hardware validation.
 
 ## Projects, Storage and Compatibility
 
 - **Capacity:** 48 patterns, **12** device project slots and 64 Song Mode chain positions. This release does **not** add 64 patterns or 16 project slots, because safely doing so requires verified RAM, serialization and flash-layout changes.
-- **Current format:** `BDR1` project **schema V30**, including the six lane-kit settings. A V29 migration decoder is retained; preserve backups when upgrading.
+- **Current format:** `BDR1` project **schema V31**, including the six lane-kit settings. V29 and V30 decoders remain supported; **older firmware cannot read V31 saves**. Preserve backups when upgrading.
 - **Backups:** `.bdrum` holds BLUE project data, whereas `.beetlebank` is for the optional global sample library. Neither fully backs up the separate `BBK1` global kit bank.
 - **Not interchangeable:** BLUE `BDR1` and the original BEETLE `TRK1` projects should not be treated as equivalent or imported by renaming a file extension.
 - **Shared flash:** projects and global user samples share device storage. Never overwrite, migrate, format or repair storage merely because a different firmware does not recognize its contents.
@@ -183,7 +204,7 @@ The current release includes two browser tools, individually or together in the 
 
 | File | Purpose |
 | :-- | :-- |
-| [`WebInstaller.html`](WebInstaller.html) | USB-MIDI firmware installer with the V0.99 `.fwsc` embedded and verified by hash |
+| [`WebInstaller.html`](WebInstaller.html) | USB-MIDI firmware installer with the V0.99.5 `.fwsc` embedded and verified by hash |
 | [`BEETLE-BLUE-Project-Manager.html`](BEETLE-BLUE-Project-Manager.html) | Backup, restore and optional user-sample management |
 | [`BEETLE-BLUE-Manager.html`](BEETLE-BLUE-Manager.html) | All-in-One Manager combining the Project Manager and WebInstaller |
 
@@ -197,17 +218,17 @@ The WebInstaller and Project Manager are the only supported browser tools in thi
 
 BLUE retains the inherited BEETLE USB Audio Class paths for stereo master audio and **six mono stems at 44.1 kHz / 16-bit**, subject to the supported device configuration. This captures **FM1 → computer** audio. It does not provide USB screen recording, and it is not computer-to-FM1 audio playback.
 
-USB enumeration, sustained recording, sync, channel routing and stability have **not been validated on a physical FM1** for V0.99. Do not rely on an experimental build for irreplaceable recordings.
+USB enumeration, sustained recording, sync, channel routing and stability have **not been validated on a physical FM1** for V0.99.5. Do not rely on an experimental build for irreplaceable recordings.
 
 ## Installation, Safety and Validation
 
 1. Export and separately verify all important `.bdrum` projects and optional global sample libraries. Record global User Kit settings because `BBK1` export is not provided.
 2. Confirm an **independent, working FM1 recovery path** before installing the experimental firmware.
-3. Review [`validation/V0.99-RESULTS.md`](validation/V0.99-RESULTS.md) and verify the `.fwsc` hash if distributing the package.
+3. Review [`validation/V0.99.5-RESULTS.md`](validation/V0.99.5-RESULTS.md) and verify the `.fwsc` hash if distributing the package.
 4. Start hardware tests conservatively. Avoid headphones and powered monitoring at unmeasured output levels; use suitable level-limited test equipment.
 5. Do not interrupt a flash write or trigger storage provisioning/formatting without an established backup and recovery procedure.
 
-### Software validation reported for V0.99
+### Software validation reported for V0.99.5
 
 | Check | Result |
 | :-- | :-- |
@@ -215,19 +236,21 @@ USB enumeration, sustained recording, sync, channel routing and stability have *
 | Read-only build / write-symbol audit | PASS |
 | 14 BEETLE ROM components + 16 MONOLITH procedural patches | Host tests PASS |
 | 3,000 repeated kick triggers and 4,096 hat/kick retriggers | Host tests PASS |
-| PCM buffer clearing and project V29→V30 migration checks | PASS |
+| PCM buffer clearing and project V29→V31 migration checks | PASS |
 | REV: factory reverse playback and MONOLITH reverse-style output | Host tests PASS |
 | REV FX pattern round-trip for CH1, CH6 and NOTE2 | PASS |
 | Local sample START/END + REV and 3,000 retriggers | Host test PASS; CH6 integration compiled but not tested on-device |
 | Firmware payload / CRC / header / OTA-loader comparison | PASS |
 | MONOLITH hat choke, CH6 NOTE1/NOTE2 selection and oscillator PITCH | Host tests PASS |
-| V0.99 exact 73-value pitch table, 3900 dense triggers and bounded stereo soft knee | Host tests PASS |
+| V0.99.5 exact 73-value pitch table, 3900 dense triggers and bounded stereo soft knee | Host tests PASS |
 | Webtool JS syntax, embedded firmware and matching tool versions | PASS |
-| Actual FM1 flashing, DMA DEADLINE, analogue peaks, USB/OTA recovery | **NOT TESTED** |
+| Self-choke all 13 user slots (project-local and Storage V2) | Host tests PASS |
+| Fastpath vs previous renderer: 768 frames, delayed refill | Exact PCM and state PASS |
+| Actual FM1 flashing, DMA DEADLINE, analogue peaks, USB/OTA recovery | **NOT VERIFIED; V0.99.4 USER-REPORTED DMA DEADLINE** |
 
-The V0.99 native app is **525,068 bytes**, with **56,496 bytes** of stated application-space headroom (of 581,564 bytes). The `.fwsc` is **610,086 bytes**.
+The V0.99.5 native app is **522,132 bytes**, with **59,432 bytes** of stated application-space headroom (of 581,564 bytes). The `.fwsc` is **610,086 bytes**.
 
-**V0.99 `.fwsc` SHA-256:** `fb5e8f8b63077dd94a6a96b410ca2119fd2f7ea041532ce26c04f31a247d36e6`
+**V0.99.5 `.fwsc` SHA-256:** `281300758b5308ca471524809dd62e0e206a0f76c1edce08b988b30d80d8f98d`
 
 Those figures describe the software build, **not** CPU headroom, safe sound pressure, successful hardware flashing or proven absence of a DMA failure.
 
@@ -239,8 +262,8 @@ Those figures describe the software build, **not** CPU headroom, safe sound pres
 | `assets/MONOLITH-Kit/` | Original 16 reference WAVs and historical mapping; not required for ROM playback |
 | `web/` | Web tools, including historical references |
 | `tests/` | Native host tests and software regression scripts |
-| `validation/V0.99-RESULTS.md` | V0.99 build, host tests, checksums and hardware limitations |
-| `UI-CAPTURES-NATIVE-1920/` | 17 native-code-rendered screen states, enlarged with nearest-neighbor |
+| `validation/V0.99.5-RESULTS.md` | V0.99.5 build, host tests, checksums and hardware limitations |
+| `UI-CAPTURES-NATIVE-1920/` | 18 native-code-rendered screen states, enlarged with nearest-neighbor |
 | `docs/` | Licensing, source attributions and archived development references |
 | `CHANGELOG.md` | Version-by-version changes |
 
@@ -251,17 +274,19 @@ Obtain a compatible JieLi Linux toolchain separately. The toolchain is **not** p
 ```bash
 export JIELI_TOOLCHAIN=/path/to/jieli-linux-toolchains-20260730.1
 python firmware/fm1-native/build.py --drum-edition --beetle-storage-lab --beetle-v2 --updater --usb-audio
-python tools/package_beetle_blue_v099.py
+python tools/package_beetle_blue_v0995.py
 # Optional: regenerate native LCD capture gallery
-python tools/render_blue_v099.py
-# Web tools for this release are included in the ZIP; preserve the V0.99 embedded firmware hash
+python tools/render_blue_v0991.py
+# Web tools for this release are included in the ZIP; preserve the V0.99.5 embedded firmware hash
 ```
 
-See the [`CHANGELOG.md`](CHANGELOG.md) for release history and [`validation/V0.99-RESULTS.md`](validation/V0.99-RESULTS.md) for the original software test evidence. The README is an operating and technical guide, not a substitute for hardware verification.
+See the [`CHANGELOG.md`](CHANGELOG.md) for release history and [`validation/V0.99.5-RESULTS.md`](validation/V0.99.5-RESULTS.md) for the original software test evidence. The README is an operating and technical guide, not a substitute for hardware verification.
 
 ## Reporting Issues
 
-When reporting a defect, include the firmware version, the on-device page, the kit and component, whether playback was stopped or running, the exact control sequence (especially repeated keyboard hits), and whether global U-samples or User Kits were involved. For `DMA DEADLINE / AUDIO STOP` failures, include how many rapid kick triggers were pressed and whether the issue also occurs with the plain BEETLE kit. Keep private projects or complete flash dumps private unless intentionally sanitized.
+When reporting a defect, include the firmware version, the on-device page, the kit and component, whether playback was stopped or running, the exact control sequence (especially repeated keyboard hits), and whether global U-samples or User Kits were involved. On the LOAD PROJECT screen, press **EDIT** on an occupied slot for individual deletion and confirm YES; default is NO. The project file format is **BDR1 V31**: this build reads earlier supported versions, but previous firmware may not read a V31 project saved by this build. Back up before installing.
+
+For `DMA DEADLINE / AUDIO STOP` failures, include how many rapid kick triggers were pressed and whether the issue also occurs with the plain BEETLE kit. Keep private projects or complete flash dumps private unless intentionally sanitized.
 
 ---
 

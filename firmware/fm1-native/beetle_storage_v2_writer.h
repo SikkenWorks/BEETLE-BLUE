@@ -40,6 +40,8 @@ int beetle_v2_writer_open(struct beetle_v2_writer *w,beetle_v2_read read,
  */
 /* Crash-atomic global kit bank transaction; modifies ONLY the metadata copy,
  * never any project/sample record or protected OTA/firmware sector. */
+int beetle_v2_write_blue_setlist(struct beetle_v2_writer *w,
+ const uint8_t record[64],uint8_t index[4096],uint8_t other[4096]);
 int beetle_v2_write_blue_kits(struct beetle_v2_writer *w,
  const uint8_t kits[BLUE_KIT_WIRE_BYTES],uint8_t index[4096],uint8_t other[4096]);
 int beetle_v2_write_project(struct beetle_v2_writer *w,uint8_t slot,

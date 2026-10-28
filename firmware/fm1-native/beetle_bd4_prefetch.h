@@ -97,6 +97,10 @@ void beetle_bd4_stream_choke_all(struct beetle_bd4_stream *stream);
  * source cursor until BOTH samples needed for interpolation are resident;
  * first-window readiness alone cannot prevent an early step-1 truncation. */
 int beetle_bd4_stream_ready_now(const struct beetle_bd4_stream *stream,unsigned voice);
+/* One-frame realtime fast path: combines resident-window check and playback.
+ * Returns -1=finished, 0=not resident (no time advancement), 1=PCM frame.
+ * No I/O, decode, allocation, window re-scan or blocking operation. */
+int beetle_bd4_stream_read_one_ready(struct beetle_bd4_stream *stream,unsigned voice,int16_t *out);
 void beetle_bd4_stream_render(struct beetle_bd4_stream *stream,unsigned voice,
                               int16_t *mono_output,uint32_t output_frames);
 #endif

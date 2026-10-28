@@ -2358,13 +2358,25 @@ void fm1_cstart(void){
    beetle_last_battery_sample_ms=etch_ms;
    int32_t raw_battery=fm1_adc_read(FM1_ADC_BATT);
    if(raw_battery>=0){
+    uint8_t was_battery_valid=track_battery_valid;
+    uint8_t old_battery_bars=beetle_battery_bars(track_battery_adc_filtered);
     track_battery_adc_filtered=beetle_battery_filter(track_battery_adc_filtered,(uint16_t)raw_battery,track_battery_valid);
     track_battery_valid=1u;
     uint8_t low=beetle_battery_low20(track_battery_adc_filtered,track_battery_low20);
     if(low!=track_battery_low20){track_battery_low20=low;track_battery_ui_dirty=1u;}
+    /* Redraw only when the coarse indicator changes, not on ADC noise. */
+    if(!was_battery_valid || beetle_battery_bars(track_battery_adc_filtered)!=old_battery_bars)
+     track_battery_ui_dirty=1u;
    }
   }
 #endif
+  /* Not a charger-status register: only reports enumerated active USB data.
+   * Keep the HUD honest until true FM1 charger/VBUS hardware is verified. */
+  uint8_t blue_usb=(uint8_t)(usb.config && !usb.suspended);
+  if(blue_usb!=track_battery_usb_link){
+   track_battery_usb_link=blue_usb;
+   track_battery_ui_dirty=1u;
+  }
   uint8_t gone=!usb.config||usb.suspended;
   if(gone&&!disconnected){fm1_irq_off();midi_in_overflow=1;fm1_irq_enable_all();}
   /* Explicit local recovery from an audio deadline stop. Press HOME+PLAY

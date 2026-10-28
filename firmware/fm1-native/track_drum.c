@@ -79,8 +79,15 @@ static const struct track_drum_timbre *drum_control(const struct track_drum_engi
 #endif
  return &fallback_user;
 }
+#if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
+static int8_t blue_global_drum_semitones;
+#endif
 void track_drum_init(struct track_drum_engine *d){
- if(!d)return;memset(d,0,sizeof(*d));d->rng=0xA17C9E23u;d->sn_last=255u;d->hh_last=255u;d->step_gain=100u;
+ if(!d)return;memset(d,0,sizeof(*d));
+#if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
+ blue_global_drum_semitones=0;
+#endif
+ d->rng=0xA17C9E23u;d->sn_last=255u;d->hh_last=255u;d->step_gain=100u;
  for(uint8_t i=0u;i<TRACK_DRUM_COUNT;i++)d->components[i]=beetle_factory[i];
 #if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
  for(uint8_t i=0u;i<BEETLE_ONESHOT_NOTES;i++)track_drum_user_default(&d->user[i]);
@@ -133,7 +140,16 @@ static int32_t blue_rom_wave(struct track_drum_voice *v,uint8_t pad,uint8_t slot
  const int32_t bright=noise;
  const int32_t tone=blue_rom_sine[v->kit_phase>>24u];
  const int32_t metal=blue_rom_sine[(v->kit_phase*7u)>>24u];
+ /* A per-instrument oscillator shape is crucial: sharing nearly identical
+  * sine+noise spectra made snare/hats/toms seem like the BEETLE PCM kit.
+  * These are cheap arithmetic variations in native ROM synthesis, not copied
+  * WAVs or a second PCM bank. Preserve the original pitch/envelopes. */
  int32_t tonal=(tone*3+metal)/4;
+ if(pad==1u||pad==14u)tonal=(tone*2+((v->kit_phase&0x80000000u)?-12000:12000))/3;
+ else if(pad>=4u&&pad<=6u)tonal=(tone*5+metal)/6;
+ else if(pad==7u||pad==8u||pad==15u)tonal=(metal*3+tone)/4;
+ else if(pad>=10u&&pad<=12u)tonal=(tone+metal*2)/3;
+ else if(pad==13u)tonal=(tone>0?14000:-14000);
  int32_t wave=(tonal*(256-(int32_t)p->noise_mix)+bright*p->noise_mix)>>8u;
  /* Clap: repeated noise bursts; timbral motion without another sample buffer. */
  if(pad==9u){uint32_t pos=v->age;uint32_t phase=(pos/390u)%3u;
@@ -224,9 +240,17 @@ int track_drum_trigger(struct track_drum_engine *d,uint8_t index){
 #endif
  if(user && !global && (!d->oneshots||!d->oneshots->length[index-BEETLE_ONESHOT_FIRST]))return 0;
  const uint8_t id=mono?index:global?(uint8_t)(32u+index-TRACK_DRUM_COUNT):user?(uint8_t)(16u+index-BEETLE_ONESHOT_FIRST):choose(d,physical[index]);
- if(hat(id))for(uint8_t i=0;i<TRACK_DRUM_POLY;i++){
+ /* BLUE V0.99.5: A user sample is MONOPHONIC PER SOURCE by default.
+  * An identical U01..U13 (local or pinned V2) retrigger chokes its older
+  * voice regardless of group=0, lane, pattern or kit. Other user samples
+  * remain independent unless an explicit choke group links them. Existing
+  * 48-frame fade avoids a hard PCM discontinuity. Both BEETLE/MONOLITH
+  * factory hi-hats are always members of the same choke family. */
+ if(hat(id)||user)for(uint8_t i=0;i<TRACK_DRUM_POLY;i++){
   struct track_drum_voice *old=&d->voices[i];
-  if(old->active&&hat(old->id)&&(!old->release_frames||old->release_frames>48u))old->release_frames=48u;
+  if(old->active && ((hat(id)&&hat(old->id)) ||
+      (user&&old->id==id)) &&
+      (!old->release_frames||old->release_frames>48u))old->release_frames=48u;
  }
  unsigned target=TRACK_DRUM_POLY;
  for(unsigned i=0;i<TRACK_DRUM_POLY;i++)if(!d->voices[i].active){target=i;break;}
@@ -273,7 +297,12 @@ int track_drum_trigger(struct track_drum_engine *d,uint8_t index){
 #endif
  v->gain_q8=(uint16_t)(256u*p->gain/100u);
  v->env_q24=16777215u;v->noise_state=rnd(&d->rng);
- v->phase_step=rate_step(p->pitch);v->pitch_semitones=p->pitch;v->active=1u;
+ v->pitch_semitones=p->pitch;
+#if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
+ {int32_t pitch=(int32_t)v->pitch_semitones+blue_global_drum_semitones;
+  if(pitch<-36)pitch=-36;if(pitch>36)pitch=36;v->pitch_semitones=(int8_t)pitch;}
+#endif
+ v->phase_step=rate_step(v->pitch_semitones);v->active=1u;
 #if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
  if(mono){v->kit_phase=0u;v->kit_env=1u<<24u;v->kit_sweep=blue_rom_patches[index-64u].sweep_inc;}
 #endif
@@ -392,11 +421,28 @@ uint8_t track_drum_reverse_voice(struct track_drum_voice *v){
 }
 #endif
 #if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
+/* One bounded retune per live PITCH change, never an allocation or a flash read.
+ * New drumvoices inherit the same offset at trigger time. BD4S streaming
+ * currently has fixed-rate source decode; do not claim its pitch changes. */
+void track_drum_set_global_pitch(struct track_drum_engine *d,int8_t semitones){
+ if(!d)return;if(semitones<-24)semitones=-24;if(semitones>24)semitones=24;
+ int32_t delta=(int32_t)semitones-blue_global_drum_semitones;
+ if(!delta)return;
+ blue_global_drum_semitones=semitones;
+ for(uint8_t i=0u;i<TRACK_DRUM_POLY;i++){
+  struct track_drum_voice *v=&d->voices[i];
+  if(!v->active)continue;
+  int32_t pitch=(int32_t)v->pitch_semitones+delta;
+  if(pitch<-36)pitch=-36;if(pitch>36)pitch=36;
+  v->pitch_semitones=(int8_t)pitch;
+  track_drum_retune_voice(d,v);
+ }
+}
 void track_drum_step_fx(struct track_drum_engine *d,struct track_drum_voice *v,
                        uint8_t slot,uint8_t type,uint8_t value,uint16_t bpm){
  if(!d||!v||!v->active||slot>=3u||type>=TRACK_FX_COUNT)return;
  uint8_t i=(uint8_t)(v-d->voices);if(i>=TRACK_DRUM_POLY)return;
- if(value>100u)value=100u;
+ if(value>(type==TRACK_FX_VOLUME?200u:100u))value=type==TRACK_FX_VOLUME?200u:100u;
  blue_voice_fx[i].type[slot]=type;
  blue_voice_fx[i].value[slot]=value;
  if(type==TRACK_FX_VOLUME){
@@ -600,7 +646,12 @@ void track_drum_render(struct track_drum_engine *d,const struct track_mixer *mix
      * must never advance without its next interpolated PCM source frame.
      * This also protects the first refill AFTER initial prefetch, which
      * previously skipped the rest of NOTE3/step-1 under flash contention. */
-    if(state==0)continue;
+    if(state==0){
+     /* A pending, now-choked stream must not retain a producer request
+      * indefinitely if its PCM window is missing. No audio was emitted. */
+     if(v->release_frames){v->active=0u;beetle_bd4_live_stop(i);}
+     continue;
+    }
    }
 #endif
    const uint32_t frac=v->phase&65535u;
@@ -631,7 +682,12 @@ void track_drum_render(struct track_drum_engine *d,const struct track_mixer *mix
     {
     /* Literal reverse addressing for immutable BEETLE ROM and project-local
      * sample PCM. Other voices keep their original forward playhead. */
+#if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
     const uint32_t rev=(uint32_t)(v->reverse&&pcm_count!=0u);
+#else
+    /* Non-BLUE legacy builds have no reverse voice field. */
+    const uint32_t rev=0u;
+#endif
 #if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
     const uint32_t source_start=(v->id>=16u&&v->id<32u)?(voice_frames[i]>>16u):0u;
 #else

@@ -59,6 +59,7 @@ void track_drum_stop(struct track_drum_engine *d);
 uint8_t track_drum_reverse_voice(struct track_drum_voice *v);
 /* Three per-hit step-FX slots, ordered FX1 -> FX2 -> FX3. Only stores
  * playback state in transient RAM, never touches project flash/codec. */
+void track_drum_set_global_pitch(struct track_drum_engine *d,int8_t semitones);
 void track_drum_step_fx(struct track_drum_engine *d,struct track_drum_voice *v,
                        uint8_t slot,uint8_t type,uint8_t value,uint16_t bpm);
 

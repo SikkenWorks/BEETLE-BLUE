@@ -16,14 +16,15 @@ uint32_t track_store_crc32(const uint8_t *p,uint32_t n){
 #define TRACK_PACKED_STEP_BITS 25u /* V4-V10 */
 #define TRACK_V11_PACKED_STEP_BITS 33u /* adds 8 dynamics bits */
 #define TRACK_V12_PACKED_STEP_BITS 40u
-#define TRACK_V20_PACKED_STEP_BITS 41u /* additional 7 groove bits */
+#define TRACK_V20_PACKED_STEP_BITS 41u /* BDR1 V20..V30, 7-bit FX value */
+#define TRACK_V31_PACKED_STEP_BITS 42u /* BDR1 V31, 8-bit FX value for 0..200% volume */
 #define TRACK_PACKED_PATTERN_BYTES ((4u*TRACK_STEPS*TRACK_PACKED_STEP_BITS+7u)/8u)
 #define TRACK_V5_MASK_BYTES ((TRACK_CHANNELS*TRACK_STEPS+7u)/8u)
 static struct track_step empty_step(uint8_t lane){
  struct track_step v={TRACK_NOTE_EMPTY,(uint8_t)(lane==TRACK_DRUM_CHANNEL?3u:lane),0u,0u,50u,0u,0u};return v;
 }
 static uint8_t valid_step(const struct track_step *st,uint8_t lane){
- return st->instrument<=7u && st->effect<TRACK_FX_COUNT && st->value<=100u &&
+ return st->instrument<=7u && st->effect<TRACK_FX_COUNT && st->value<=(st->effect==TRACK_FX_VOLUME?200u:100u) &&
  (lane==TRACK_DRUM_CHANNEL ?
   ((st->note==TRACK_NOTE_EMPTY||st->note==TRACK_NOTE_STOP||st->note<TRACK_DRUM_NOTE_COUNT)&&st->chord<=15u) :
   ((st->note==TRACK_NOTE_EMPTY||st->note==TRACK_NOTE_STOP||st->note<=127u)&&st->chord<TRACK_CHORD_COUNT));
@@ -62,11 +63,11 @@ static uint8_t track_store_preflight(const struct track_store_project *p){
    if(f->pattern!=k)continue;
    uint8_t key=f->id,lane=(uint8_t)((key&127u)/TRACK_STEPS),row=(uint8_t)((key&127u)%TRACK_STEPS);
    if(lane>=TRACK_CHANNELS||((key&128u)!=0u&&lane!=TRACK_DRUM_CHANNEL)||
-      track_extra_effect(f)==0u||track_extra_effect(f)>=TRACK_FX_COUNT||f->value>100u)return 0u;
+      track_extra_effect(f)==0u||track_extra_effect(f)>=TRACK_FX_COUNT||f->value>(track_extra_effect(f)==TRACK_FX_VOLUME?200u:100u))return 0u;
    if(track_extra_count(&p->song,k,key)>2u)return 0u;
   }
   for(uint8_t s=0u;s<TRACK_STEPS;s++)
-   if(pat->note2_fx[s].effect>=TRACK_FX_COUNT||pat->note2_fx[s].value>100u||
+   if(pat->note2_fx[s].effect>=TRACK_FX_COUNT||pat->note2_fx[s].value>(pat->note2_fx[s].effect==TRACK_FX_VOLUME?200u:100u)||
        (pat->note3[s]>=TRACK_DRUM_NOTE_COUNT&&pat->note3[s]!=TRACK_NOTE_STOP&&pat->note3[s]!=TRACK_NOTE_EMPTY))return 0u;
  }
  for(uint8_t k=0u;k<TRACK_DRUM_COUNT;k++){
@@ -131,7 +132,7 @@ int track_store_encode(const struct track_store_project *p,uint8_t *out,uint32_t
     out[mask_at+(pos>>3)]|=(uint8_t)(1u<<(pos&7u));populated++;
    }
   }
-  uint32_t packed=(populated*TRACK_V20_PACKED_STEP_BITS+7u)/8u;
+  uint32_t packed=(populated*(TRACK_STORE_VERSION>=31u?TRACK_V31_PACKED_STEP_BITS:TRACK_V20_PACKED_STEP_BITS)+7u)/8u;
   if(i+packed>cap)return -2;
   memset(out+i,0,packed);uint32_t bit=0u;
   for(c=0;c<TRACK_CHANNELS;c++)for(s=0;s<TRACK_STEPS;s++){
@@ -140,7 +141,7 @@ int track_store_encode(const struct track_store_project *p,uint8_t *out,uint32_t
    const struct track_step *st=&pat->ch[c][s];
    pack_bits(out+i,&bit,st->note,8u);pack_bits(out+i,&bit,st->instrument,3u);
    pack_bits(out+i,&bit,st->chord,4u);pack_bits(out+i,&bit,st->effect,4u);
-   pack_bits(out+i,&bit,st->value,7u);
+   pack_bits(out+i,&bit,st->value,TRACK_STORE_VERSION>=31u?8u:7u);
    pack_bits(out+i,&bit,st->dynamics,8u);pack_bits(out+i,&bit,st->groove,7u);
   }
   i+=packed;
@@ -342,7 +343,7 @@ int track_store_encode(const struct track_store_project *p,uint8_t *out,uint32_t
 }
 int track_store_decode(struct track_store_project *p,const uint8_t *data,uint32_t n){
  if(!p||!data||n<42u||n>TRACK_STORE_MAX)return -1;
- if(rd32(data)!=TRACK_STORE_MAGIC||(rd16(data+4u)!=1u&&rd16(data+4u)!=2u&&rd16(data+4u)!=3u&&rd16(data+4u)!=4u&&rd16(data+4u)!=5u&&rd16(data+4u)!=6u&&rd16(data+4u)!=7u&&rd16(data+4u)!=8u&&rd16(data+4u)!=9u&&rd16(data+4u)!=10u&&rd16(data+4u)!=11u&&rd16(data+4u)!=12u&&rd16(data+4u)!=13u&&rd16(data+4u)!=14u&&rd16(data+4u)!=15u&&rd16(data+4u)!=16u&&rd16(data+4u)!=17u&&rd16(data+4u)!=18u&&rd16(data+4u)!=19u&&rd16(data+4u)!=20u&&rd16(data+4u)!=21u&&rd16(data+4u)!=22u&&rd16(data+4u)!=23u&&rd16(data+4u)!=24u&&rd16(data+4u)!=25u&&rd16(data+4u)!=26u&&rd16(data+4u)!=27u&&rd16(data+4u)!=28u&&rd16(data+4u)!=29u&&rd16(data+4u)!=TRACK_STORE_VERSION)||rd16(data+6u)>=TRACK_PROJECTS||rd32(data+8u)!=n||
+ if(rd32(data)!=TRACK_STORE_MAGIC||(rd16(data+4u)!=1u&&rd16(data+4u)!=2u&&rd16(data+4u)!=3u&&rd16(data+4u)!=4u&&rd16(data+4u)!=5u&&rd16(data+4u)!=6u&&rd16(data+4u)!=7u&&rd16(data+4u)!=8u&&rd16(data+4u)!=9u&&rd16(data+4u)!=10u&&rd16(data+4u)!=11u&&rd16(data+4u)!=12u&&rd16(data+4u)!=13u&&rd16(data+4u)!=14u&&rd16(data+4u)!=15u&&rd16(data+4u)!=16u&&rd16(data+4u)!=17u&&rd16(data+4u)!=18u&&rd16(data+4u)!=19u&&rd16(data+4u)!=20u&&rd16(data+4u)!=21u&&rd16(data+4u)!=22u&&rd16(data+4u)!=23u&&rd16(data+4u)!=24u&&rd16(data+4u)!=25u&&rd16(data+4u)!=26u&&rd16(data+4u)!=27u&&rd16(data+4u)!=28u&&rd16(data+4u)!=29u&&rd16(data+4u)!=30u&&rd16(data+4u)!=TRACK_STORE_VERSION)||rd16(data+6u)>=TRACK_PROJECTS||rd32(data+8u)!=n||
     rd32(data+12u)!=track_store_crc32(data+24u,n-24u)||rd32(data+16u)!=track_store_crc32(data,16u))return -3;
 #if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
  /* Prevent an old/foreign TRK1 project from entering the all-drum audio path.
@@ -422,7 +423,7 @@ int track_store_decode(struct track_store_project *p,const uint8_t *data,uint32_
    memcpy(present,data+i,TRACK_V5_MASK_BYTES);i+=TRACK_V5_MASK_BYTES;
    uint32_t count=0u;
    for(uint8_t x=0u;x<TRACK_V5_MASK_BYTES;x++)for(uint8_t b=0u;b<8u;b++)count+=(present[x]>>b)&1u;
-   packed=(count*(rd16(data+4u)>=20u?TRACK_V20_PACKED_STEP_BITS:rd16(data+4u)>=12u?TRACK_V12_PACKED_STEP_BITS:rd16(data+4u)>=11u?TRACK_V11_PACKED_STEP_BITS:TRACK_PACKED_STEP_BITS)+7u)/8u;
+   packed=(count*(rd16(data+4u)>=31u?TRACK_V31_PACKED_STEP_BITS:rd16(data+4u)>=20u?TRACK_V20_PACKED_STEP_BITS:rd16(data+4u)>=12u?TRACK_V12_PACKED_STEP_BITS:rd16(data+4u)>=11u?TRACK_V11_PACKED_STEP_BITS:TRACK_PACKED_STEP_BITS)+7u)/8u;
    if(i+packed>n)return -2;
   }else if(rd16(data+4u)>=4u){
    packed=TRACK_PACKED_PATTERN_BYTES;if(i+packed>n)return -2;
@@ -436,7 +437,7 @@ int track_store_decode(struct track_store_project *p,const uint8_t *data,uint32_
     st->instrument=(uint8_t)unpack_bits(data+i,&bit,rd16(data+4u)>=20u?3u:2u);
     st->chord=(uint8_t)unpack_bits(data+i,&bit,4u);
     st->effect=(uint8_t)unpack_bits(data+i,&bit,4u);
-    st->value=(uint8_t)unpack_bits(data+i,&bit,7u);
+    st->value=(uint8_t)unpack_bits(data+i,&bit,rd16(data+4u)>=31u?8u:7u);
     st->dynamics=rd16(data+4u)>=11u?(uint8_t)unpack_bits(data+i,&bit,8u):0u;
     st->groove=rd16(data+4u)>=12u?(uint8_t)unpack_bits(data+i,&bit,7u):0u;
    }else{
@@ -451,7 +452,7 @@ int track_store_decode(struct track_store_project *p,const uint8_t *data,uint32_
    uint16_t mask=rd16(data+i);i+=2u;
    for(s=0;s<TRACK_STEPS;s++)if(mask&(1u<<s)){
     GET1(pat->note2_fx[s].effect);GET1(pat->note2_fx[s].value);
-    if(pat->note2_fx[s].effect>=TRACK_FX_COUNT||pat->note2_fx[s].value>100u)return -3;
+    if(pat->note2_fx[s].effect>=TRACK_FX_COUNT||pat->note2_fx[s].value>(pat->note2_fx[s].effect==TRACK_FX_VOLUME?200u:100u))return -3;
    }
   }
   /* V26: legacy files have no third-note events. Keep the empty sentinel. */
@@ -472,7 +473,7 @@ int track_store_decode(struct track_store_project *p,const uint8_t *data,uint32_
     uint8_t key,fx,value;GET1(key);GET1(fx);GET1(value);
     uint8_t lane=(uint8_t)((key&127u)/16u),row=(uint8_t)((key&127u)%16u);
     if(lane>=TRACK_CHANNELS||((key&128u)!=0u&&lane!=TRACK_DRUM_CHANNEL)||
-       !(fx&127u)||(fx&127u)>=TRACK_FX_COUNT||value>100u||
+       !(fx&127u)||(fx&127u)>=TRACK_FX_COUNT||value>((fx&127u)==TRACK_FX_VOLUME?200u:100u)||
        track_extra_count(&p->song,r,key)>=2u)return -3;
     uint8_t slot=(uint8_t)(rd16(data+4u)>=22u?((fx>>7u)&1u):track_extra_count(&p->song,r,key));
     if(track_extra_get(&p->song,r,key,slot))return -3;

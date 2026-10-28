@@ -23,7 +23,7 @@
 #define TRACK_CHORD_COUNT 12u
 #define TRACK_PUNCH_COUNT 16u
 /* Sparse pattern backing store: an inactive pattern may be loaded on demand. */
-/* A 5-byte packed step: 8 NOTE + 3 INST + 4 CHORD + 4 FX + 7 VALUE
+/* A 5-byte packed step: 8 NOTE + 3 INST + 4 CHORD + 4 FX + 8 VALUE
  * + 8 dynamics bits. Keeps the 48-pattern bank the SAME RAM size.
  * V1.3.1 uses 6 bytes per step to address eight synth patches.
  * dyn=0 has legacy velocity 94 and legato gate. Nibbles are independent.
@@ -33,7 +33,7 @@ struct __attribute__((packed)) track_step {
  unsigned int instrument:3;
  unsigned int chord:4;
  unsigned int effect:4;
- unsigned int value:7;
+ unsigned int value:8;
  unsigned int dynamics:8;
  unsigned int groove:7; /* 3-bit micro-delay, 2-bit ratchet, 2-bit probability */
 };

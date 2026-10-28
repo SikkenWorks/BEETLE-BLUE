@@ -37,7 +37,7 @@ int main(int argc,char **argv){
  FILE *f=fopen(argv[1],"wb");assert(f);assert(fwrite(buf,1,n,f)==n);fclose(f);
  printf("PASS legacy BDR1 V29 fixture (%u bytes)\n",n);
 #else
- assert(TRACK_STORE_VERSION==30u);
+ assert(TRACK_STORE_VERSION==31u);
  FILE *f=fopen(argv[1],"rb");assert(f);size_t m=fread(buf,1,sizeof buf,f);fclose(f);
  assert(m>50 && buf[4]==29);
  assert(track_store_decode(&b,buf,(uint32_t)m)==0);
@@ -45,15 +45,27 @@ int main(int argc,char **argv){
  const uint8_t kits[6]={0,1,2,5,10,13};
  memcpy(b.lane_kit,kits,6);
  assert(track_store_encode(&b,buf,sizeof buf,&n)==0);
- assert(n<=TRACK_STORE_V4_MAX && buf[4]==30);
+ assert(n<=TRACK_STORE_V4_MAX && buf[4]==31);
  memset(&a,0,sizeof a);
  assert(track_store_decode(&a,buf,n)==0);
  assert(memcmp(a.lane_kit,kits,6)==0);
+ /* New V31 8-bit FX value must persist exactly at 200% without spilling
+  * into adjacent dynamics/groove fields or adjacent lane/step rows. */
+ b.song.patterns[0].ch[0][0].effect=TRACK_FX_VOLUME;
+ b.song.patterns[0].ch[0][0].value=200u;
+ b.song.patterns[0].ch[0][0].dynamics=0x93u;
+ b.song.patterns[0].ch[0][0].groove=0x36u;
+ assert(track_store_encode(&b,buf,sizeof buf,&n)==0);
+ assert(track_store_decode(&a,buf,n)==0);
+ assert(a.song.patterns[0].ch[0][0].value==200u);
+ assert(a.song.patterns[0].ch[0][0].dynamics==0x93u);
+ assert(a.song.patterns[0].ch[0][0].groove==0x36u);
+ assert(a.song.patterns[0].ch[4][8].note==1u);
  assert(a.song.patterns[0].ch[0][0].note==0);
  assert(a.song.patterns[0].ch[4][8].note==1);
  buf[n-17]^=8;assert(track_store_decode(&a,buf,n)!=0);
  buf[n-17]^=8;b.lane_kit[3]=14;assert(track_store_encode(&b,buf,sizeof buf,&n)!=0);
- printf("PASS V29 migration, six lane-kit IDs, V30 CRC+range rejection, pattern integrity (%u bytes)\n",n);
+ printf("PASS V29 migration, six lane-kit IDs, V31 CRC+range rejection, pattern integrity (%u bytes)\n",n);
 #endif
  return 0;
 }
