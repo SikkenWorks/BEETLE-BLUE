@@ -1072,7 +1072,9 @@ static void track_runtime_validate(void){
    struct track_step *e=&track_state.active.ch[c][st];
    e->note=255u;e->instrument=c;e->chord=0u;e->effect=0u;e->value=50u;
   }
-  track_state.active.length=16u;faulty=1u;
+  track_state.active.length=16u;
+  for(uint8_t c=0;c<TRACK_CHANNELS;c++)track_lane_set_length(&track_state.active,c,16u);
+  faulty=1u;
  }
  /* RC1.0.4: reverse-key search is page 32. Do not mistake it for corrupt state. */
  if(!beetle_ui_page_valid(track_page)){track_page=0u;faulty=1u;}
@@ -1084,8 +1086,8 @@ static void track_runtime_validate(void){
  if(track_state.transport.edit_channel>=TRACK_CHANNELS){track_state.transport.edit_channel=0u;faulty=1u;}
  /* Hidden rows must never remain focusable after load/restore. Not a
   * storage fault: shortening a pattern legitimately leaves data in RAM. */
- if(track_state.transport.edit_step>=track_state.active.length)
-  track_state.transport.edit_step=(uint8_t)(track_state.active.length-1u);
+ if(track_state.transport.edit_step>=track_lane_length(&track_state.active,track_state.transport.edit_channel))
+  track_state.transport.edit_step=(uint8_t)(track_lane_length(&track_state.active,track_state.transport.edit_channel)-1u);
  if(track_state.transport.edit_column>=TRACK_NAV_COLUMNS){track_state.transport.edit_column=0u;faulty=1u;}
  if(track_state.pattern_slot>=TRACK_PATTERNS){track_state.pattern_slot=0u;faulty=1u;}
  if(track_song.count==0u||track_song.count>TRACK_SONG_ENTRIES){
@@ -1372,8 +1374,8 @@ static const struct track_extra_fx *track_audio_extra(uint8_t lane,uint8_t row,u
   if(src>=TRACK_PATTERNS)return 0;
   pat=src;
   const struct track_pattern *p=&track_song.patterns[src];
-  row=(uint8_t)(row%(p->length?p->length:16u));
- }
+  row=track_lane_row(p,lane,row);
+ }else row=track_lane_row(&track_state.active,lane,row);
  return track_extra_find(&track_song,pat,track_extra_key(lane,row,note2),slot);
 }
 static void track_audio_fire(struct etch_native_audio *audio,uint8_t lane_mask){
@@ -1392,7 +1394,8 @@ static void track_audio_fire(struct etch_native_audio *audio,uint8_t lane_mask){
  /* Drum channel: two independent sample triggers on the same step. The
   * second hit reuses the former CHD byte (0=empty; 1..16=drum index+1).
   * Oscillator channels remain fully unchanged. */
- const struct track_step *dr=&track_state.active.ch[TRACK_DRUM_CHANNEL][position];
+ const uint8_t drum_row=track_lane_row(&track_state.active,TRACK_DRUM_CHANNEL,position);
+ const struct track_step *dr=&track_state.active.ch[TRACK_DRUM_CHANNEL][drum_row];
  /* V18 drum NOTE1 and NOTE2 volume apply independently to newly triggered hits. */
  track_drum.step_gain=100u;
  if(!(lane_mask&(1u<<TRACK_DRUM_CHANNEL))){}
@@ -1406,7 +1409,7 @@ static void track_audio_fire(struct etch_native_audio *audio,uint8_t lane_mask){
       track_drum.voices[i].sequence==track_drum_note1_serial)track_drum.voices[i].active=0u;
    track_drum_note1_serial=0u;
   }
-  if(track_drum_note3_enabled && track_state.active.note3[position]==TRACK_NOTE_STOP && track_drum_note3_serial){
+  if(track_drum_note3_enabled && track_state.active.note3[drum_row]==TRACK_NOTE_STOP && track_drum_note3_serial){
    for(uint8_t i=0u;i<TRACK_DRUM_POLY;i++)if(track_drum.voices[i].active &&
       track_drum.voices[i].sequence==track_drum_note3_serial)track_drum.voices[i].active=0u;
    track_drum_note3_serial=0u;
@@ -1467,7 +1470,7 @@ static void track_audio_fire(struct etch_native_audio *audio,uint8_t lane_mask){
      * Identify the actual fired NOTE2 voice without touching a prior note tail. */
     uint8_t second_hit=beetle_blue_pair_is_note2(first,second,
       hit->id,hit->component,hit->sequence,serial);
-    const struct track_note2_fx *f2=&track_state.active.note2_fx[position];
+    const struct track_note2_fx *f2=&track_state.active.note2_fx[drum_row];
     uint8_t fx=second_hit?f2->effect:dr->effect;
     uint8_t value=second_hit?f2->value:dr->value;
 #if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
@@ -1487,7 +1490,7 @@ static void track_audio_fire(struct etch_native_audio *audio,uint8_t lane_mask){
     track_drum_step_fx(&track_drum,hit,0u,fx,value,track_state.transport.bpm);
     for(uint8_t slot=0u;slot<2u;slot++){
      const struct track_extra_fx *extra=
-      track_audio_extra(TRACK_DRUM_CHANNEL,position,second_hit,slot);
+      track_audio_extra(TRACK_DRUM_CHANNEL,drum_row,second_hit,slot);
      if(extra)track_drum_step_fx(&track_drum,hit,(uint8_t)(slot+1u),
        track_extra_effect(extra),extra->value,track_state.transport.bpm);
     }
@@ -1505,7 +1508,7 @@ static void track_audio_fire(struct etch_native_audio *audio,uint8_t lane_mask){
 #endif
     /* Additional NOTE1/NOTE2 FX are independent for each drum hit. */
     for(uint8_t slot=0u;slot<2u;slot++){
-     const struct track_extra_fx *extra=track_audio_extra(TRACK_DRUM_CHANNEL,position,second_hit,slot);
+     const struct track_extra_fx *extra=track_audio_extra(TRACK_DRUM_CHANNEL,drum_row,second_hit,slot);
      if(!extra)continue;
      if(track_extra_effect(extra)==TRACK_FX_DRUM_PITCH){
       int32_t pitch=(int32_t)hit->pitch_semitones+(int32_t)extra->value-12;
@@ -1532,9 +1535,9 @@ static void track_audio_fire(struct etch_native_audio *audio,uint8_t lane_mask){
   }
   /* A third CH6 note uses the same sample/ROM voice engine, but has its own
    * trigger serial and STOP. Never let it inherit FX from the now-hidden row. */
-  if(track_drum_note3_enabled && track_state.active.note3[position]<TRACK_DRUM_NOTE_COUNT){
+  if(track_drum_note3_enabled && track_state.active.note3[drum_row]<TRACK_DRUM_NOTE_COUNT){
    uint32_t previous=track_drum.trigger_serial;
-   uint8_t third=track_state.active.note3[position];
+   uint8_t third=track_state.active.note3[drum_row];
 #if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
    uint8_t source3=beetle_blue_lane_source(blue_lane_kit,TRACK_DRUM_CHANNEL);
    struct track_drum_timbre saved3;
@@ -1544,7 +1547,7 @@ static void track_audio_fire(struct etch_native_audio *audio,uint8_t lane_mask){
 #endif
    (void)track_drum_trigger(&track_drum,third);
 #if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
-   if(fix3)track_drum.components[track_state.active.note3[position]]=saved3;
+   if(fix3)track_drum.components[track_state.active.note3[drum_row]]=saved3;
 #endif
    uint8_t vel3=track_step_velocity(dr),gate3=track_step_gate(dr);
    uint32_t period3=661500u/(track_state.transport.bpm?track_state.transport.bpm:120u);
@@ -1582,7 +1585,8 @@ static void track_audio_fire(struct etch_native_audio *audio,uint8_t lane_mask){
   * pool remains bounded; never allocate/copy from the real-time callback. */
  for(uint8_t c=0u;c<TRACK_DRUM_CHANNEL;c++){
   if(!(lane_mask&(1u<<c)))continue;
-  const struct track_step *s=&track_state.active.ch[c][position];
+  const uint8_t lane_row=track_lane_row(&track_state.active,c,position);
+  const struct track_step *s=&track_state.active.ch[c][lane_row];
   if(s->note==TRACK_NOTE_STOP){
    uint32_t serial=track_drum_lane_serial[c];
    if(serial)for(uint8_t v=0u;v<TRACK_DRUM_POLY;v++){
@@ -1664,7 +1668,8 @@ static void track_audio_fire(struct etch_native_audio *audio,uint8_t lane_mask){
  uint8_t instruments[TRACK_CHANNELS],velocity[TRACK_CHANNELS];
  for(uint8_t c=0;c<TRACK_DRUM_CHANNEL;c++){
   if(!(lane_mask&(1u<<c)))continue;
-  const struct track_step *s=&track_state.active.ch[c][position];
+  const uint8_t lane_row=track_lane_row(&track_state.active,c,position);
+  const struct track_step *s=&track_state.active.ch[c][lane_row];
   /* The current note's instrument stays selected throughout its sustain.
    * Empty steps must not reset EQ, volume, or step FX. */
   if(s->note<=127u)track_lane_instrument[c]=s->instrument;
@@ -1946,7 +1951,7 @@ static uint32_t beetle_song_key_led_mask(void){
  const uint8_t src=track_song_source(ref);
  if(src>=TRACK_PATTERNS)return 0u;
  const struct track_pattern *pat=&track_song.patterns[src];
- const uint8_t length=pat->length?pat->length:1u;
+ const uint8_t length=track_lane_length(pat,lane);
  const uint8_t step=(uint8_t)(track_state.transport.play_step%length);
  const struct track_step *st=&pat->ch[lane][step];
  if(!track_state.transport.playing && st->note>=TRACK_NOTE_STOP &&
@@ -2198,7 +2203,7 @@ static void track_fm1_grid(void){
  const uint8_t drawn_step=track_ui_step_override?track_ui_step_snapshot:track_state.transport.play_step;
  uint8_t first=(uint8_t)((track_state.transport.playing?drawn_step:track_state.transport.edit_step)&0xF0u);
  for(uint8_t i=0u;i<16u;i++){
-  uint8_t row=(uint8_t)(first+i); if(row>=track_state.active.length || row>=TRACK_STEPS)continue;
+  uint8_t row=(uint8_t)(first+i); if(row>=track_lane_length(&track_state.active,track_state.transport.edit_channel) || row>=TRACK_STEPS)continue;
   uint16_t y=(uint16_t)(43u+(uint16_t)i*10u);
   if(etch_scope_active && etch_panel_composite &&
      (y+11u<=etch_scope_origin || y-2u>=etch_scope_origin+etch_scope_height))continue;
@@ -2287,8 +2292,8 @@ static void track_fm1_grid(void){
   const uint8_t drawn_song_pos=track_ui_step_override?track_ui_song_pos_snapshot:track_song.position;
  if(track_song.enabled && track_song.composite_active && drawn_song_pos<track_song.count){
    uint8_t src=track_song.chain[drawn_song_pos].lane[track_state.transport.edit_channel];
-   if(src<TRACK_PATTERNS){source=src;uint8_t len=track_song.patterns[src].length;
-    fxrow=(uint8_t)(row%(len?len:TRACK_STEPS));}
+   if(src<TRACK_PATTERNS){source=src;
+    fxrow=track_lane_row(&track_song.patterns[src],track_state.transport.edit_channel,row);}
   }
   const uint8_t fxkey=track_extra_key(track_state.transport.edit_channel,fxrow,0u);
   const uint8_t synth_extra=track_extra_count(&track_song,source,fxkey);
@@ -2323,6 +2328,10 @@ static void track_fm1_grid(void){
  char pat[32]="PAT ";char num[12];track_u8(num,track_state.pattern_slot+1u);
  pat[4]=num[0];pat[5]=num[1];pat[6]=' ';pat[7]='/';pat[8]=' ';pat[9]='4';pat[10]='8';pat[11]=0;
  track_pix_text(pat,168u,224u,TRACK_PINK);
+ char lane_label[12]="LEN ";char lane_num[12];
+ track_u8(lane_num,track_lane_length(&track_state.active,track_state.transport.edit_channel));
+ lane_label[4]=lane_num[0];lane_label[5]=lane_num[1];lane_label[6]=0;
+ track_pix_text(lane_label,117u,224u,TRACK_BRIGHT);
  if(drum)track_pix_text(track_drum_note3_enabled?"N3 ON":"N3 OFF",48u,224u,TRACK_BRIGHT);
 
  track_grid_lane_status();
@@ -2695,7 +2704,7 @@ static void track_fm1_master_screen(void){
   }
   track_pix_text(fx==1u?"SEL THR K2 RAT K3 GAIN K4 ATK":"SEL WET K2 TAIL K3 TONE K4 WID",6u,210u,TRACK_WHITE);
  }
- track_pix_text("SELECT FX SEL ON/OFF SEQ+K4",3u,224u,TRACK_PINK);
+ track_pix_text("SEQ+K4 SET LANE LEN 01-16",3u,224u,TRACK_PINK);
 }
 static void beetle_draw_keyboard_octave(uint16_t y){
  char msg[24]="KEY OCT ";int8_t v=native_controls.octave;
@@ -4753,8 +4762,8 @@ static void track_fm1_poll(void){
  }
  /* Isolated block editor: no sound/input note changes while editing. */
  if(track_page==20u){
-  if(k4){beetle_ed.first=beetle_block_bound_length((int32_t)beetle_ed.first+k4,track_state.active.length);beetle_ed.status=0u;}
-  if(k1){beetle_ed.last=beetle_block_bound_length((int32_t)beetle_ed.last+k1,track_state.active.length);beetle_ed.status=0u;}
+  if(k4){beetle_ed.first=beetle_block_bound_length((int32_t)beetle_ed.first+k4,track_lane_length(&track_state.active,track_state.transport.edit_channel));beetle_ed.status=0u;}
+  if(k1){beetle_ed.last=beetle_block_bound_length((int32_t)beetle_ed.last+k1,track_lane_length(&track_state.active,track_state.transport.edit_channel));beetle_ed.status=0u;}
   if(k2){int32_t op=(int32_t)beetle_ed.action+k2;beetle_ed.action=(uint8_t)(op<0?0:op>=BEETLE_BLOCK_ACTIONS?BEETLE_BLOCK_ACTIONS-1:op);beetle_ed.status=0u;}
   if(k3){int32_t amount=(int32_t)beetle_ed.amount+k3;
    if(amount< -24)amount=-24;if(amount>24)amount=24;
@@ -4784,7 +4793,7 @@ static void track_fm1_poll(void){
  /* V0.59 independent velocity/gate step editor. No playback edits allowed.
   * SEQ+FX enters; SEQ/HOME exits. No legacy tracker column changes. */
  if(track_page==22u){
-  if(k1)track_state.transport.edit_step=track_row_move_length(track_state.transport.edit_step,k1,track_state.active.length);
+  if(k1)track_state.transport.edit_step=track_row_move_length(track_state.transport.edit_step,k1,track_lane_length(&track_state.active,track_state.transport.edit_channel));
   if(k2){int32_t f=(int32_t)track_groove_focus+k2;track_groove_focus=(uint8_t)(f<0?0:f>2?2:f);}
   /* Page-local SEQ chord; do not let OP1/2 modify the tracker lane
    * clipboard, or OP3/4 overwrite all six lanes. The input is consumed
@@ -4825,7 +4834,7 @@ static void track_fm1_poll(void){
   screen();track_last_paint=now;return;
  }
  if(track_page==21u){
-  if(k1)track_state.transport.edit_step=track_row_move_length(track_state.transport.edit_step,k1,track_state.active.length);
+  if(k1)track_state.transport.edit_step=track_row_move_length(track_state.transport.edit_step,k1,track_lane_length(&track_state.active,track_state.transport.edit_channel));
   if(k2)track_dyn_focus=(uint8_t)((int32_t)track_dyn_focus+k2>0?1u:0u);
   if((k3||(pressed&(1u<<3)))&&!track_state.transport.playing){
    fm1_irq_off();beetle_edit_begin(&beetle_ed,&track_song,&track_state);
@@ -5227,8 +5236,9 @@ static void track_fm1_poll(void){
  if(beetle_pattern_length_chord(track_page,buttons,released,k4)){
   track_seq_fired=1u;
   if(!track_state.transport.playing){
-   uint8_t length=beetle_pattern_length_target(track_state.active.length,k4);
-   if(length!=track_state.active.length){
+   uint8_t lane=track_state.transport.edit_channel;
+   uint8_t length=beetle_pattern_length_target(track_lane_length(&track_state.active,lane),k4);
+   if(length!=track_lane_length(&track_state.active,lane)){
     fm1_irq_off();
     beetle_edit_begin(&beetle_ed,&track_song,&track_state);
     if(track_set_pattern_length(&track_state,length)==0){
@@ -5395,7 +5405,7 @@ static void track_fm1_poll(void){
    }
    if((buttons&(1u<<3)) && k1 && !track_state.transport.playing){
     /* Both anchor and endpoint are part of the copied selection. */
-    uint8_t next=track_row_move_length(track_state.transport.edit_step,k1,track_state.active.length);
+    uint8_t next=track_row_move_length(track_state.transport.edit_step,k1,track_lane_length(&track_state.active,track_state.transport.edit_channel));
     if(beetle_sel_delete_range){
      beetle_step_selection_arm(&beetle_range_on,&beetle_range_anchor,
                                &beetle_range_end,track_state.transport.edit_step);
@@ -5452,7 +5462,7 @@ static void track_fm1_poll(void){
     changed=1u;
    }
    if((k1 && !track_live_punch_mask)||k2)track_scroll_preview_stop_locked();
-   if(k1 && !track_live_punch_mask)track_state.transport.edit_step=track_row_move_length(track_state.transport.edit_step,k1,track_state.active.length);
+   if(k1 && !track_live_punch_mask)track_state.transport.edit_step=track_row_move_length(track_state.transport.edit_step,k1,track_lane_length(&track_state.active,track_state.transport.edit_channel));
    if(k2)track_state.transport.edit_column=track_column_move(track_state.transport.edit_column,k2);
    if(k3){
     /* K3 NOTE + CHD: audition the SAVED selected step after each edit.

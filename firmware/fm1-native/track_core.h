@@ -36,6 +36,7 @@ struct __attribute__((packed)) track_step {
  unsigned int value:8;
  unsigned int dynamics:8;
  unsigned int groove:7; /* 3-bit micro-delay, 2-bit ratchet, 2-bit probability */
+ unsigned int lane_length_code:4; /* reserved bits on row 0: 0=16 steps; 1..15=explicit lane length */
 };
 /* 7 bit groove 0=original timing, one hit, 100% probability.
  * Micro 0..7 = delayed by micro/64 of a step, sample-exact. All offsets
@@ -62,6 +63,29 @@ struct track_note2_fx {uint8_t effect,value;};
 struct track_pattern {struct track_step ch[TRACK_CHANNELS][TRACK_STEPS];uint8_t length;
  struct track_note2_fx note2_fx[TRACK_STEPS];
  uint8_t note3[TRACK_STEPS]; /* CH6 independent third drum hit, 255=EMPTY 254=STP */};
+static inline uint8_t track_lane_length(const struct track_pattern *p,uint8_t ch){
+ if(!p||ch>=TRACK_CHANNELS)return TRACK_STEPS;
+#if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
+ uint8_t n=(uint8_t)p->ch[ch][0u].lane_length_code;
+ return n?n:TRACK_STEPS;
+#else
+ /* Original BEETLE retains one shared pattern length without any changes. */
+ return (p->length>=1u&&p->length<=TRACK_STEPS)?p->length:TRACK_STEPS;
+#endif
+}
+static inline void track_lane_set_length(struct track_pattern *p,uint8_t ch,uint8_t length){
+ if(!p||ch>=TRACK_CHANNELS||length<1u||length>TRACK_STEPS)return;
+ /* 0 encodes 16, leaving the legacy struct size unchanged. */
+ p->ch[ch][0u].lane_length_code=(unsigned int)(length==TRACK_STEPS?0u:length);
+}
+static inline uint8_t track_lane_row(const struct track_pattern *p,uint8_t ch,uint8_t play_step){
+ return (uint8_t)(play_step%track_lane_length(p,ch));
+}
+static inline uint8_t track_pattern_max_length(const struct track_pattern *p){
+ uint8_t n=1u;
+ for(uint8_t c=0;c<TRACK_CHANNELS;c++){uint8_t v=track_lane_length(p,c);if(v>n)n=v;}
+ return n;
+}
 static inline uint8_t track_extra_key(uint8_t lane,uint8_t row,uint8_t note2){
  return (uint8_t)(lane*TRACK_STEPS+row+(note2?128u:0u));
 }
@@ -121,7 +145,8 @@ uint32_t track_home_action(uint32_t held_ms,uint8_t released); /* 1 HOME short, 
 /* Pure endian-defined codec: fixed 324-byte pattern, no flash access. */
 #define TRACK_PATTERN_V3_BYTES (4u+TRACK_CHANNELS*TRACK_STEPS*7u)
 #define TRACK_PATTERN_V4_BYTES (TRACK_PATTERN_V3_BYTES+TRACK_STEPS*2u)
-#define TRACK_PATTERN_BYTES (TRACK_PATTERN_V4_BYTES+TRACK_STEPS)
+#define TRACK_PATTERN_V5_BYTES (TRACK_PATTERN_V4_BYTES+TRACK_STEPS)
+#define TRACK_PATTERN_BYTES (TRACK_PATTERN_V5_BYTES+TRACK_CHANNELS)
 #define TRACK_PATTERN_V2_BYTES (4u+TRACK_CHANNELS*TRACK_STEPS*6u)
 #define TRACK_PATTERN_LEGACY_BYTES (4u+TRACK_CHANNELS*TRACK_STEPS*5u)
 int track_pattern_encode(const struct track_pattern *pattern,uint8_t *dst,uint32_t cap);

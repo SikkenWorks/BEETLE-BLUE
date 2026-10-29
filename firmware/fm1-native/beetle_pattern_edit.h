@@ -115,8 +115,8 @@ static inline int beetle_edit_apply_image(struct track_song_bank *bank,struct tr
  if(!bank||!eng||!img||pat>=TRACK_PATTERNS)return 0;
  if(pat!=eng->pattern_slot)(void)track_song_switch(bank,eng,pat);
  eng->active=img->pattern;bank->patterns[pat]=img->pattern;
- if(eng->active.length>=1u&&eng->active.length<=TRACK_STEPS && eng->transport.edit_step>=eng->active.length)
-  eng->transport.edit_step=(uint8_t)(eng->active.length-1u);
+ uint8_t len=track_lane_length(&eng->active,eng->transport.edit_channel);
+ if(eng->transport.edit_step>=len)eng->transport.edit_step=(uint8_t)(len-1u);
  bank->clips[pat]=img->punch;bank->extras=img->extras;eng->dirty=1u;return 1;
 }
 /* Undo/redo use the same snapshot slot. On every move, swap its pattern
@@ -154,8 +154,8 @@ static inline int beetle_edit_paste_pattern(struct beetle_pattern_editor *ed,str
  }
  beetle_edit_begin(ed,bank,eng);
  eng->active=ed->whole_clip->pattern;
- if(eng->active.length>=1u&&eng->active.length<=TRACK_STEPS && eng->transport.edit_step>=eng->active.length)
-  eng->transport.edit_step=(uint8_t)(eng->active.length-1u);
+ uint8_t len=track_lane_length(&eng->active,eng->transport.edit_channel);
+ if(eng->transport.edit_step>=len)eng->transport.edit_step=(uint8_t)(len-1u);
  bank->clips[eng->pattern_slot]=ed->whole_clip->punch;
  for(uint8_t i=0u;i<bank->extras.count;){
   if(bank->extras.data[i].pattern==eng->pattern_slot){
@@ -204,12 +204,13 @@ static inline int beetle_edit_block_execute(struct beetle_pattern_editor *ed,str
  if(!ed||!bank||!eng||eng->transport.edit_channel>=TRACK_CHANNELS)return 0;
  /* Restrict destructive block edits to active rows. Steps beyond the
   * pattern end must survive a later expansion back to 16. */
- const uint8_t len=(eng->active.length>=1u&&eng->active.length<=TRACK_STEPS)?eng->active.length:TRACK_STEPS;
+ const uint8_t len=track_lane_length(&eng->active,eng->transport.edit_channel);
  ed->first=beetle_block_bound_length(ed->first,len);
  ed->last=beetle_block_bound_length(ed->last,len);
  const uint8_t a=ed->first<ed->last?ed->first:ed->last;
  const uint8_t b=ed->first>ed->last?ed->first:ed->last;
  const uint8_t ch=eng->transport.edit_channel;
+ const uint8_t saved_lane_length=track_lane_length(&eng->active,ch);
  if(ed->action==0u){beetle_edit_block_copy(ed,bank,eng);ed->status=1u;return 1;}
  if(ed->action==5u){ed->status=(uint8_t)(beetle_edit_undo(ed,bank,eng)?2u:4u);return ed->status==2u;}
  if(ed->action==6u){ed->status=(uint8_t)(beetle_edit_redo(ed,bank,eng)?3u:4u);return ed->status==3u;}
@@ -259,6 +260,9 @@ static inline int beetle_edit_block_execute(struct beetle_pattern_editor *ed,str
    (void)track_extra_add(bank,eng->pattern_slot,key,track_extra_slot(f),track_extra_effect(f),f->value);
   }
  }
+ /* Row 0 reuses four otherwise spare step bits for the lane length.
+  * A note copy/shift into row 0 must never change the configured length. */
+ track_lane_set_length(&eng->active,ch,saved_lane_length);
  track_extra_prune(bank,eng->pattern_slot,&eng->active);
  if(beetle_edit_commit(ed,bank,eng)){eng->dirty=1u;ed->status=2u;return 1;}
  ed->status=4u;return 0;

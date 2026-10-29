@@ -19,7 +19,7 @@ static inline void beetle_groove_schedule(struct beetle_groove_clock *g,
  const uint32_t swing_at[TRACK_CHANNELS]){
  for(uint8_t c=0;c<TRACK_CHANNELS;c++){
   struct beetle_groove_lane *v=&g->lane[c];
-  const struct track_step *s=&p->ch[c][step];
+  const struct track_step *s=&p->ch[c][track_lane_row(p,c,step)];
   const uint8_t repeats=TRACK_GROOVE_RATCHET(s);
   uint32_t offset=swing_at[c]+duration*TRACK_GROOVE_MICRO(s)/64u;
   if(offset>=duration)offset=duration-1u;

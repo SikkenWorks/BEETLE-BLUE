@@ -1,3 +1,14 @@
+## V1.0.0 RC11 | Per-pattern six-lane loop length (experimental)
+
+- Added **independent 1–16 step length for CH1–CH6 in each of the 48 patterns**; default 16. Hold **SEQ and rotate K4** on the tracker to set the selected lane's length. `LEN xx` shows its length. K1 step navigation respects the selected lane.
+- Each lane independently loops modulo its own length, including the additional CH6 drum hits, drum FX, groove/microtiming, ratchets and Song Mode source lanes. The overall pattern advances on the longest active lane; no >16-step transport added.
+- Updated clipboard/block operations and undo/redo to retain the selected lane-length metadata stored in reserved row-0 bits. **No increase in step (6 B) or pattern (625 B) RAM footprint.**
+- New **BDR1 V33** serialized project format: three packed lane-length bytes per pattern, along with a version 6 standalone pattern file. V32 projects and other supported older versions continue to load. Downgrading to earlier BEETLE BLUE firmware after saving V33 is unsupported; back up before update.
+- Validated native writable/read-only builds; BDR1 V33 project save/load, authentic RC10 V32 migration, independent 1/7/12/16 loops, drum FX, groove, Song Mode, block editing, original BEETLE Song Chain regression, and existing physical-workspace storage tests on host. **Real FM1 hardware timing and installation are not tested.**
+- Original RC10 credits and upstream licence headers, RC9 Live Mode warm audio changes and Storage V2 policy are preserved. No auto-format or destructive migration.
+
+---
+
 ## V1.0.0 RC10 | Credits and battery attribution
 
 - Explicitly credit Leo Kuroshita / Hügelton Instruments (Felucca, GPL-3.0-only) for the 531/561/591 battery-voltage ADC thresholds used by the BLUE indicator. BLUE's filtering, fallback/invalid-read behavior and pixel presentation are SikkenWorks additions.

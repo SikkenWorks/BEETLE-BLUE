@@ -49,7 +49,8 @@ int track_clear_step(struct track_engine *e,uint8_t channel,uint8_t step){
 int track_set_instrument_range(struct track_engine *e,uint8_t channel,uint8_t first,uint8_t last,uint8_t instrument){
  if(!e||channel>=TRACK_SYNTH_CHANNELS||instrument>=TRACK_INSTRUMENT_SLOTS)return 0;
  uint8_t lo=first<last?first:last,hi=first>last?first:last;
- if(lo>=e->active.length)return 0;if(hi>=e->active.length)hi=(uint8_t)(e->active.length-1u);
+ uint8_t length=track_lane_length(&e->active,channel);
+ if(lo>=length)return 0;if(hi>=length)hi=(uint8_t)(length-1u);
  int changes=0;
  for(uint8_t i=lo;i<=hi;i++){
   struct track_step *step=&e->active.ch[channel][i];
@@ -62,7 +63,8 @@ int track_set_instrument_range(struct track_engine *e,uint8_t channel,uint8_t fi
 int track_clear_step_range(struct track_engine *e,uint8_t channel,uint8_t first,uint8_t last){
  if(!e||channel>=TRACK_CHANNELS)return 0;
  uint8_t lo=first<last?first:last,hi=first>last?first:last;
- if(lo>=e->active.length)return 0;if(hi>=e->active.length)hi=(uint8_t)(e->active.length-1u);
+ uint8_t length=track_lane_length(&e->active,channel);
+ if(lo>=length)return 0;if(hi>=length)hi=(uint8_t)(length-1u);
  int count=0;
  for(uint8_t i=lo;i<=hi;i++){
   (void)track_clear_step(e,channel,i);
@@ -138,12 +140,22 @@ int track_transpose_note_range(struct track_engine *e,uint8_t channel,uint8_t fi
  return changed;
 }
 int track_adjust_octave(struct track_engine *e,int8_t semitones){if(!e||e->transport.edit_channel>=TRACK_SYNTH_CHANNELS||e->transport.edit_step>=16u)return -1;struct track_step *s=&e->active.ch[e->transport.edit_channel][e->transport.edit_step];if(s->note>=TRACK_NOTE_STOP)return 0;int v=(int)s->note+(int)semitones;if(v<0)v=0;if(v>127)v=127;if(s->note==(uint8_t)v)return 0;s->note=(uint8_t)v;e->dirty=1u;return 1;}
-void track_rotate_select(struct track_engine *e,int8_t direction){if(!e||!direction)return;if(e->transport.edit_column==2u && e->transport.edit_channel!=TRACK_DRUM_CHANNEL){struct track_step *s=&e->active.ch[e->transport.edit_channel][e->transport.edit_step];s->chord=(uint8_t)((s->chord+TRACK_CHORD_COUNT+(direction>0?1u:TRACK_CHORD_COUNT-1u))%TRACK_CHORD_COUNT);e->dirty=1u;}else{e->transport.edit_channel=(uint8_t)((e->transport.edit_channel+TRACK_CHANNELS+(direction>0?1u:TRACK_CHANNELS-1u))%TRACK_CHANNELS);}}
-void track_set_channel(struct track_engine *e,uint8_t ch){if(e&&ch<TRACK_CHANNELS)e->transport.edit_channel=ch;}
+void track_rotate_select(struct track_engine *e,int8_t direction){if(!e||!direction)return;if(e->transport.edit_column==2u && e->transport.edit_channel!=TRACK_DRUM_CHANNEL){struct track_step *s=&e->active.ch[e->transport.edit_channel][e->transport.edit_step];s->chord=(uint8_t)((s->chord+TRACK_CHORD_COUNT+(direction>0?1u:TRACK_CHORD_COUNT-1u))%TRACK_CHORD_COUNT);e->dirty=1u;}else{track_set_channel(e,(uint8_t)((e->transport.edit_channel+TRACK_CHANNELS+(direction>0?1u:TRACK_CHANNELS-1u))%TRACK_CHANNELS));}}
+void track_set_channel(struct track_engine *e,uint8_t ch){
+ if(!e||ch>=TRACK_CHANNELS)return;
+ e->transport.edit_channel=ch;
+ uint8_t length=track_lane_length(&e->active,ch);
+ if(e->transport.edit_step>=length)e->transport.edit_step=(uint8_t)(length-1u);
+}
 void track_set_bpm(struct track_engine *e,uint16_t bpm){if(!e)return;if(bpm<30u)bpm=30u;if(bpm>300u)bpm=300u;e->transport.bpm=bpm;e->dirty=1u;}
 int track_set_pattern_length(struct track_engine *e,uint8_t length){
- if(!e||length<1u||length>TRACK_STEPS||e->transport.playing)return -1;
- e->active.length=length;
+ if(!e||length<1u||length>TRACK_STEPS||e->transport.playing||e->transport.edit_channel>=TRACK_CHANNELS)return -1;
+#if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
+ track_lane_set_length(&e->active,e->transport.edit_channel,length);
+ e->active.length=track_pattern_max_length(&e->active);
+#else
+ e->active.length=length; /* Retain original BEETLE global-length controls. */
+#endif
  if(e->transport.edit_step>=length)e->transport.edit_step=(uint8_t)(length-1u);
  e->dirty=1u;return 0;
 }
@@ -225,8 +237,9 @@ uint32_t track_home_action(uint32_t held_ms,uint8_t released){if(held_ms>=1500u)
 /* TR version 2 includes dynamics explicitly. Original TR version 1 still
  * decodes with default velocity and legato gate. No architecture byte copies. */
 int track_pattern_encode(const struct track_pattern *p,uint8_t *dst,uint32_t cap){
- if(!p||!dst||cap<TRACK_PATTERN_BYTES||p->length<1u||p->length>TRACK_STEPS)return -1;
- dst[0]='T';dst[1]='R';dst[2]=5u;dst[3]=p->length;uint32_t at=4u;
+ if(!p||!dst||cap<TRACK_PATTERN_BYTES||p->length<1u||p->length>TRACK_STEPS||track_pattern_max_length(p)!=p->length)return -1;
+ dst[0]='T';dst[1]='R';dst[2]=6u;dst[3]=p->length;uint32_t at=4u;
+ for(unsigned c=0;c<TRACK_CHANNELS;c++){uint8_t len=track_lane_length(p,(uint8_t)c);if(!len||len>TRACK_STEPS)return -1;dst[at++]=len;}
  for(unsigned c=0;c<TRACK_CHANNELS;c++)for(unsigned st=0;st<16u;st++){
   const struct track_step *s=&p->ch[c][st];
   if((s->note>127u&&s->note!=TRACK_NOTE_STOP&&s->note!=TRACK_NOTE_EMPTY)||s->instrument>7u||
@@ -247,8 +260,12 @@ int track_pattern_encode(const struct track_pattern *p,uint8_t *dst,uint32_t cap
 int track_pattern_decode(struct track_pattern *p,const uint8_t *src,uint32_t len){
  if(!p||!src||len<4u||src[0]!='T'||src[1]!='R'||(src[3]<1u||src[3]>TRACK_STEPS))return -1;
  uint8_t version=src[2];
- if((version<1u||version>5u)||len!=(version==1u?TRACK_PATTERN_LEGACY_BYTES:version==2u?TRACK_PATTERN_V2_BYTES:version==3u?TRACK_PATTERN_V3_BYTES:version==4u?TRACK_PATTERN_V4_BYTES:TRACK_PATTERN_BYTES))return -1;
+ if((version<1u||version>6u)||len!=(version==1u?TRACK_PATTERN_LEGACY_BYTES:version==2u?TRACK_PATTERN_V2_BYTES:version==3u?TRACK_PATTERN_V3_BYTES:version==4u?TRACK_PATTERN_V4_BYTES:version==5u?TRACK_PATTERN_V5_BYTES:TRACK_PATTERN_BYTES))return -1;
  struct track_pattern next={0};next.length=src[3];uint32_t at=4u;
+ for(unsigned c=0;c<TRACK_CHANNELS;c++){uint8_t lane_length=version>=6u?src[at++]:next.length;
+  if(!lane_length||lane_length>TRACK_STEPS)return -1;
+  track_lane_set_length(&next,(uint8_t)c,lane_length);}
+ if(version>=6u&&track_pattern_max_length(&next)!=src[3])return -1;
  for(unsigned c=0;c<TRACK_CHANNELS;c++)for(unsigned st=0;st<16u;st++){
   struct track_step *s=&next.ch[c][st];
   s->note=src[at++];s->instrument=src[at++];s->chord=src[at++];

@@ -57,7 +57,7 @@ static uint8_t track_store_preflight(const struct track_store_project *p){
  }
  for(uint8_t k=0u;k<TRACK_PATTERNS;k++){
   const struct track_pattern *pat=&p->song.patterns[k];
-  if(pat->length<1u || pat->length>TRACK_STEPS || p->song.extras.count>TRACK_EXTRA_FX_CAP)return 0u;
+  if(pat->length<1u || pat->length>TRACK_STEPS || track_pattern_max_length(pat)!=pat->length || p->song.extras.count>TRACK_EXTRA_FX_CAP)return 0u;
   for(uint8_t x=0u;x<p->song.extras.count;x++){
    const struct track_extra_fx *f=&p->song.extras.data[x];
    if(f->pattern!=k)continue;
@@ -119,7 +119,7 @@ uint8_t track_store_diagnose(const struct track_store_project *p){
  if(p->song.extras.count>TRACK_EXTRA_FX_CAP)return 5u;
  for(uint8_t r=0;r<TRACK_PATTERNS;r++){
   const struct track_pattern *pat=&p->song.patterns[r];
-  if(!pat->length||pat->length>TRACK_STEPS)return 4u;
+  if(!pat->length||pat->length>TRACK_STEPS||track_pattern_max_length(pat)!=pat->length)return 4u;
   for(uint8_t c=0;c<TRACK_CHANNELS;c++)for(uint8_t t=0;t<TRACK_STEPS;t++)
    if(!valid_step(&pat->ch[c][t],c))return 4u;
   for(uint8_t t=0;t<TRACK_STEPS;t++){
@@ -237,6 +237,11 @@ int track_store_encode(const struct track_store_project *p,uint8_t *out,uint32_t
  }
  for(r=0;r<TRACK_PATTERNS;r++){
   const struct track_pattern *pat=&p->song.patterns[r];PUT1(pat->length);
+#if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
+  /* V33: six lane lengths in three bytes. 1..16 stored as 0..15 nibbles. */
+  for(c=0;c<TRACK_CHANNELS;c+=2u)
+   PUT1((uint8_t)((track_lane_length(pat,c)-1u)|((track_lane_length(pat,(uint8_t)(c+1u))-1u)<<4u)));
+#endif
   /* One presence bit per step; only populated/non-default cells take 25 bits.
    * Default cells still preserve correct lane instrument and 50% FX value. */
   if(i+TRACK_V5_MASK_BYTES>cap)return -2;
@@ -492,7 +497,7 @@ int track_store_encode(const struct track_store_project *p,uint8_t *out,uint32_t
 }
 int track_store_decode(struct track_store_project *p,const uint8_t *data,uint32_t n){
  if(!p||!data||n<42u||n>TRACK_STORE_MAX)return -1;
- if(rd32(data)!=TRACK_STORE_MAGIC||(rd16(data+4u)!=1u&&rd16(data+4u)!=2u&&rd16(data+4u)!=3u&&rd16(data+4u)!=4u&&rd16(data+4u)!=5u&&rd16(data+4u)!=6u&&rd16(data+4u)!=7u&&rd16(data+4u)!=8u&&rd16(data+4u)!=9u&&rd16(data+4u)!=10u&&rd16(data+4u)!=11u&&rd16(data+4u)!=12u&&rd16(data+4u)!=13u&&rd16(data+4u)!=14u&&rd16(data+4u)!=15u&&rd16(data+4u)!=16u&&rd16(data+4u)!=17u&&rd16(data+4u)!=18u&&rd16(data+4u)!=19u&&rd16(data+4u)!=20u&&rd16(data+4u)!=21u&&rd16(data+4u)!=22u&&rd16(data+4u)!=23u&&rd16(data+4u)!=24u&&rd16(data+4u)!=25u&&rd16(data+4u)!=26u&&rd16(data+4u)!=27u&&rd16(data+4u)!=28u&&rd16(data+4u)!=29u&&rd16(data+4u)!=30u&&rd16(data+4u)!=31u&&rd16(data+4u)!=TRACK_STORE_VERSION)||rd16(data+6u)>=TRACK_PROJECTS||rd32(data+8u)!=n||
+ if(rd32(data)!=TRACK_STORE_MAGIC||(rd16(data+4u)!=1u&&rd16(data+4u)!=2u&&rd16(data+4u)!=3u&&rd16(data+4u)!=4u&&rd16(data+4u)!=5u&&rd16(data+4u)!=6u&&rd16(data+4u)!=7u&&rd16(data+4u)!=8u&&rd16(data+4u)!=9u&&rd16(data+4u)!=10u&&rd16(data+4u)!=11u&&rd16(data+4u)!=12u&&rd16(data+4u)!=13u&&rd16(data+4u)!=14u&&rd16(data+4u)!=15u&&rd16(data+4u)!=16u&&rd16(data+4u)!=17u&&rd16(data+4u)!=18u&&rd16(data+4u)!=19u&&rd16(data+4u)!=20u&&rd16(data+4u)!=21u&&rd16(data+4u)!=22u&&rd16(data+4u)!=23u&&rd16(data+4u)!=24u&&rd16(data+4u)!=25u&&rd16(data+4u)!=26u&&rd16(data+4u)!=27u&&rd16(data+4u)!=28u&&rd16(data+4u)!=29u&&rd16(data+4u)!=30u&&rd16(data+4u)!=31u&&rd16(data+4u)!=32u&&rd16(data+4u)!=TRACK_STORE_VERSION)||rd16(data+6u)>=TRACK_PROJECTS||rd32(data+8u)!=n||
     rd32(data+12u)!=track_store_crc32(data+24u,n-24u)||rd32(data+16u)!=track_store_crc32(data,16u))return -3;
 #if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
  /* Prevent an old/foreign TRK1 project from entering the all-drum audio path.
@@ -561,8 +566,19 @@ int track_store_decode(struct track_store_project *p,const uint8_t *data,uint32_
  for(r=0;r<TRACK_PATTERNS;r++){
   struct track_pattern *pat=&p->song.patterns[r];GET1(pat->length);
   if(pat->length<1u||pat->length>TRACK_STEPS)return -3;
+#if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
+  if(rd16(data+4u)>=33u){
+   for(c=0;c<TRACK_CHANNELS;c+=2u){uint8_t packed;GET1(packed);
+    track_lane_set_length(pat,c,(uint8_t)(1u+(packed&15u)));
+    track_lane_set_length(pat,(uint8_t)(c+1u),(uint8_t)(1u+(packed>>4u)));}
+   if(track_pattern_max_length(pat)!=pat->length)return -3;
+  }else
+#endif
+   for(c=0;c<TRACK_CHANNELS;c++)track_lane_set_length(pat,c,pat->length);
   for(c=0;c<TRACK_CHANNELS;c++)for(s=0;s<TRACK_STEPS;s++){
+   uint8_t lane_code=(uint8_t)pat->ch[c][s].lane_length_code;
    pat->ch[c][s]=empty_step(c);
+   if(s==0u)pat->ch[c][s].lane_length_code=lane_code;
    /* V19 default CH5 instrument was 0. Keep old projects sonically identical. */
    if(rd16(data+4u)<20u && c==4u)pat->ch[c][s].instrument=0u;
   }

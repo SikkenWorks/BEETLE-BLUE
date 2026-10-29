@@ -1,0 +1,17 @@
+{
+  "firmware": "BEETLE BLUE V1.0.0 RC11 PER-PATTERN INDEPENDENT LANE LENGTHS",
+  "product": "FM-1_2124",
+  "package_sha256": "ed2ff602cd4b5ec09240df4b9da794c6414d18f006fe63884455ab0d95e35332",
+  "app_sha256": "85b7d7040dc7487f30ae0ecfd55c24834a6798eecc5799179aa69eb8a0999fd0",
+  "source_reference": "BEETLE-BLUE-V1.0.0-RC10-CREDITS-EXPERIMENTAL.fwsc",
+  "reference_sha256": "d74d2f1f799a7ce2b75cec18f3e5a395fd45418b25317ca44ca0479922cadd03",
+  "checks": {
+    "protected_header_identical": true,
+    "ota_identical": true,
+    "decrypted_app_matches": true,
+    "container_shape_identical": true,
+    "native_app_audit": true
+  },
+  "hardware_tested": false,
+  "ota_recovery_proven": false
+}

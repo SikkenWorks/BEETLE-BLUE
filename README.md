@@ -1,6 +1,24 @@
-# BEETLE BLUE V1.0 RC10 | Credits and provenance audit (RC9 functionality retained)
+# BEETLE BLUE V1.0 RC11 | Independent lane lengths per pattern
 
-**Current firmware:** `BEETLE-BLUE-V1.0.0-RC10-CREDITS-EXPERIMENTAL.fwsc`
+**Current experimental firmware:** `BEETLE-BLUE-V1.0.0-RC11-LANE-LENGTH-EXPERIMENTAL.fwsc`
+
+## Per-pattern lane length (new in RC11)
+
+Every pattern has **six independently adjustable lane lengths** (CH1–CH6), from **1 to 16 steps**. The default is **16 steps on every lane**. For example: CH1 = 16, CH2 = 12, CH3 = 7, CH4 = 16, CH5 = 8 and CH6 = 4. Within the same 16-step transport cycle, each lane plays steps `1..its own length`, then loops from step 1. A 7-step lane therefore plays step 1 again when the global counter advances to step 8. This permits interlocking/polyrhythmic drum patterns without creating more than 16 steps per lane.
+
+**Controls:** Open the TRACKER with **SEQ**, select CH1–CH6 using the **SELECT rotary encoder**, then **hold SEQ and turn K4** to change only that lane's length (01–16). The tracker displays `LEN 07` (for example) for the selected lane. All other lane lengths remain unchanged. The PAT counter and battery position are unchanged.
+
+The lane-length settings are **independent for every one of the 48 patterns** and are retained by project SAVE/LOAD, block edits, Song Mode and Live Mode. Notes and step effects beyond a shortened lane's length remain in memory and can be reached again when that lane is lengthened. Song Mode composes each selected source lane using its own length, including CH6 NOTE2/NOTE3 drums and step effects; swing, microtiming and ratchets use the same per-lane wrap.
+
+**Compatibility:** RC11 saves projects as **BDR1 V33**. V32 projects saved by RC10 and other supported older versions load with their original shared length copied to all six lanes. Earlier firmware **cannot** read V33 projects. Back up your projects before upgrading or downgrading. No flash partition change or Wipe All Storage is required. The native FM1 pattern/step RAM footprint is unchanged; source-code and host tests pass, **but physical FM1 operation is not yet verified**.
+
+**Release tests:** see [`RC11-VALIDATION.md`](RC11-VALIDATION.md). The RC10 credits, Felucca battery attribution, RC9 warm Live Mode audio transition, Storage V2 implementation, User Kits and all original licences are retained.
+
+---
+
+## RC10 history | Credits and provenance audit (RC9 functionality retained)
+
+**Historical RC10 firmware:** `BEETLE-BLUE-V1.0.0-RC10-CREDITS-EXPERIMENTAL.fwsc`
 
 ## Battery display
 

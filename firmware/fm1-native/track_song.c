@@ -8,6 +8,7 @@ void track_song_init(struct track_song_bank *b,const struct track_engine *e){
  memset(b,0,sizeof(*b));
  for(uint8_t i=0;i<TRACK_PATTERNS;i++){
    b->patterns[i].length=16u;
+
    for(uint8_t s=0;s<TRACK_STEPS;s++){b->patterns[i].note2_fx[s].value=50u;b->patterns[i].note3[s]=TRACK_NOTE_EMPTY;}
   for(uint8_t c=0;c<TRACK_CHANNELS;c++)for(uint8_t s=0;s<TRACK_STEPS;s++){
    b->patterns[i].ch[c][s].note=255u;
@@ -59,7 +60,7 @@ int track_song_switch(struct track_song_bank *b,struct track_engine *e,uint8_t i
  e->active=b->patterns[index];e->pattern_slot=index;
  /* Different patterns may have different lengths. Never leave focus on an
   * invisible step after manual, queued, or song-controlled switching. */
- uint8_t len=e->active.length>=1u&&e->active.length<=TRACK_STEPS?e->active.length:TRACK_STEPS;
+ uint8_t len=track_lane_length(&e->active,e->transport.edit_channel);
  if(e->transport.edit_step>=len)e->transport.edit_step=(uint8_t)(len-1u);
  return 0;
 }
@@ -72,14 +73,14 @@ static void track_song_compose(struct track_song_bank *b,struct track_engine *e)
  for(uint8_t c=0u;c<TRACK_CHANNELS;c++){
   uint8_t src=track_song_source(ent->lane[c]);
   if(src<TRACK_PATTERNS && track_song_lane_visible(b,ent->lane[c],c)){
-   uint8_t plen=b->patterns[src].length;
-   if(plen>length&&plen<=TRACK_STEPS)length=plen;
+   uint8_t plen=track_lane_length(&b->patterns[src],c);
+   if(plen>length)length=plen;
   }
  }
  for(uint8_t c=0u;c<TRACK_CHANNELS;c++){
   uint8_t src=track_song_source(ent->lane[c]);
   const struct track_pattern *p=track_song_lane_visible(b,ent->lane[c],c)?&b->patterns[src]:0;
-  uint8_t plen=p&&p->length&&p->length<=TRACK_STEPS?p->length:TRACK_STEPS;
+  uint8_t plen=p?track_lane_length(p,c):TRACK_STEPS;
   if(p){
    /* Most patterns are 16 steps. One contiguous bounded copy replaces
     * 16 per-cell modulo operations at each SONG boundary in the audio ISR. */
@@ -101,6 +102,9 @@ static void track_song_compose(struct track_song_bank *b,struct track_engine *e)
     if(c==TRACK_DRUM_CHANNEL){out->note2_fx[s].effect=0u;out->note2_fx[s].value=50u;out->note3[s]=TRACK_NOTE_EMPTY;}
    }
   }
+  /* Copying source row zero also copies the packed lane-length field: override it
+   * only AFTER the row copy, so the playback pattern keeps its own wrap length. */
+  track_lane_set_length(out,c,p?plen:1u);
  }
  /* Extra FX are looked up from each source lane while Song Mode is active.
   * Do not merge several patterns into a limited 16-entry scratch pool. */
