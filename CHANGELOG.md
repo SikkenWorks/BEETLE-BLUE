@@ -1,3 +1,19 @@
+## V1.0.0 RC10 | Credits and battery attribution
+
+- Explicitly credit Leo Kuroshita / Hügelton Instruments (Felucca, GPL-3.0-only) for the 531/561/591 battery-voltage ADC thresholds used by the BLUE indicator. BLUE's filtering, fallback/invalid-read behavior and pixel presentation are SikkenWorks additions.
+- Update the on-device CREDITS page, README, full source credit documents, browser Manager, Project Manager and WebInstaller. Preserve BEETLE, ETCH, Felucca, JieLi, reSID/Nes_Snd_Emu reference distinctions and all required upstream copyright/licence notices.
+- No change to the RC9 audio, persistence, DSP, project schema or Live Mode algorithms. Firmware recompiled only for on-device credit text and version. Experimental: hardware testing still required.
+
+# V1.0 RC9 — BATTERY HUD / SILENT LIVE PROJECT LOADING / USER KIT SELECTION
+
+- PB1 battery indicator now follows Felucca's FM1 raw ADC thresholds 531 / 561 / 591, has an invalid-reading guard and keeps USB connection separate from verified charger state; no invented percentage.
+- Live Perform and Setlist autosave now use an in-place warm DMA quiesce with a 256-sample fade, DAC buffer drain, digital zero during flash operations and fade-in on resume, instead of switching PC6 off/on at every transition. Existing realtime progress overlay retained.
+- Fixed the unsent stereo PCM buffer tail on end-of-pattern playback when Live Mode has no per-project Song Chain.
+- After Kit Designer stores a global User Kit successfully, that kit is automatically selected for the current lane (save your project to persist the lane reference). Existing BBK1 format, 12 global kit slots and 14 timbre components are unchanged.
+- No changes to Storage V2 allocation, project schemas, USB protocol, protected header or OTA-loader. Physical FM1 charging indication, analog pop-free switching and sustained USB recording are not certified.
+
+---
+
 # BEETLE BLUE V1.0.0 RC8 — PROJECT DATA ERROR fix
 
 Gebruik **BEETLE-BLUE-Manager.html** of **BEETLE-BLUE-V1.0.0-RC8-WebInstaller.html**.

@@ -133,6 +133,7 @@ static volatile uint8_t track_battery_ui_dirty;
 static uint8_t track_battery_usb_link;
 static uint16_t track_battery_adc_filtered;
 static uint8_t track_battery_valid;
+static uint8_t track_battery_bad_reads;
 
 /* REC only saves fresh physical down edges after PLAY. Orphan OFF events are ignored.
  * Preserve the source clip even when Song Chains advances during a hold. */
@@ -1220,7 +1221,7 @@ static void track_preview_release(uint32_t held){
 static void track_fm1_boot(void){
  track_init(&track_state);track_drum_note3_enabled=0u;track_drum_note3_serial=0u;track_sel_fx_latch=0u;track_state.record_armed=1u;track_punch_rec_armed=0u;
  track_song_range_on=track_song_sel_was_range=0u;track_song_sel_since=0u;track_song_rows_clip.valid=0u;
- track_battery_low20=track_battery_valid=track_battery_ui_dirty=track_battery_usb_link=0u;track_battery_adc_filtered=0u;beetle_mute_cancel(&track_mute_queue);beetle_live_reset();beetle_snapshots_init(&track_snapshots);track_snapshot_slot=0u;beetle_groups_init(&track_groups);track_group_slot=track_group_lane=0u;track_mixer_init(&track_mix);track_drum_init(&track_drum);
+ track_battery_low20=track_battery_valid=track_battery_ui_dirty=track_battery_usb_link=0u;track_battery_adc_filtered=0u;track_battery_bad_reads=0u;beetle_mute_cancel(&track_mute_queue);beetle_live_reset();beetle_snapshots_init(&track_snapshots);track_snapshot_slot=0u;beetle_groups_init(&track_groups);track_group_slot=track_group_lane=0u;track_mixer_init(&track_mix);track_drum_init(&track_drum);
  track_master_default(&track_master_cfg);track_drum_component=0u;track_drum_field=0u;
 #if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
  track_drum_kit_index=0u;blue_kit_bank_init(&blue_global_kits);
@@ -1884,6 +1885,16 @@ static void track_fm1_audio_process(struct etch_native_audio *audio,uint32_t fra
    if(blue_live.active && !track_song.enabled && track_state.transport.play_step==0u){
     track_stop(&track_state);blue_live_song_done=1u;
     track_audio_all_off(audio);track_audio_started=0u;
+    /* Critical: this early return may occur mid-DMA-block. The leftover
+     * native_stereo area is reused from the previous render. Never emit
+     * stale audio after the song boundary (a real source of end pops). */
+    if(offset<frames){
+     memset(dst+(size_t)offset*2u,0,(size_t)(frames-offset)*2u*sizeof(*dst));
+#if ETCH_NATIVE_UAC
+     if(beetle_stem_capture)memset(beetle_stem_capture+(size_t)offset*TRACK_CHANNELS,
+                                  0,(size_t)(frames-offset)*TRACK_CHANNELS*sizeof(*beetle_stem_capture));
+#endif
+    }
     return;
    }
    /* Even a one-row selection loops to its own row. It is a new Song
@@ -2090,8 +2101,9 @@ static void track_fmt_int(char *dst,uint32_t value){
  do{tmp[n++]=(char)('0'+value%10u);value/=10u;}while(value&&n<11u);
  uint8_t i=0u;while(n)dst[i++]=tmp[--n];dst[i]=0;
 }
-/* Battery HUD is a tiny dedicated pixel rectangle. No '%' is shown because
- * the PB1 ADC divider / SoC curve has not been calibrated on a physical FM1.
+/* Battery HUD uses Felucca's FM1 PB1 ADC bands; the cell voltage is
+ * only a coarse state indication, particularly while USB power is present.
+ * No fabricated percentage or verified charger status is shown.
  * Lightning means an enumerated USB host is present, NOT verified charging:
  * a wall charger can charge without enumeration and USB may not charge.
  * The LCD path never touches ADC or USB registers. */
@@ -2105,7 +2117,7 @@ static void blue_battery_hud(uint16_t x,uint16_t y){
   for(uint8_t i=0u;i<bars;i++)lcd_fill((uint16_t)(x+3u+4u*i),y+3u,3u,4u,fill);
  }else track_pix_text("?",x+8u,y+2u,TRACK_WHITE);
  if(track_battery_usb_link){
-  /* abstract plug/bolt in BLUE pink; USB connected, not charger assertion */
+  /* BLUE USB-power symbol: USB enumeration, NOT proof of charging. */
   lcd_fill(x+29u,y+1u,3u,1u,fill);
   lcd_fill(x+28u,y+2u,3u,1u,fill);
   lcd_fill(x+27u,y+3u,3u,1u,fill);
@@ -3262,7 +3274,7 @@ static void track_fm1_paint(void){
   track_pix_center("K1 CHOOSE   SEL OPEN",120u,209u,TRACK_PINK);
   track_pix_center(
 #if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
- "BEETLE BLUE V1.0 RC8",
+ "BEETLE BLUE V1.0 RC10",
 #else
  "BEETLE V1.7.14",
 #endif
@@ -3272,27 +3284,37 @@ static void track_fm1_paint(void){
  if(track_page==28u){
   track_page_header("CREDITS",43u);
   static const char *const lines[]={
+#if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
+   "BEETLE BLUE / SIKKENWORKS",
+   "JOPPE SIKKEN",
+   "BEETLE + ETCH DERIVATIVE",
+   "",
+   "FELUCCA / LEO KUROSHITA",
+   "HUGELTON INSTRUMENTS",
+   "FM1 HAL / AUDIO / OTA",
+   "BATTERY BANDS: FELUCCA",
+   "",
+   "JIELI / AC79 PLATFORM",
+   "GPL-3.0-ONLY",
+   "FULL CREDITS IN SOURCE"
+#else
    "BEETLE / SIKKENWORKS",
    "JOPPE SIKKEN",
    "DESIGN / FIRMWARE / UI",
    "",
    "FELUCCA / LEO KUROSHITA",
    "HUGELTON INSTRUMENTS",
-   "FM1 HAL / BOOT / OTA",
+   "FM1 HAL / AUDIO / OTA",
    "",
-#if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
-   "BEETLE BLUE / DRUMS",
-   "DIGITAL DRUM ENGINE",
-   "FM1 / JIELI PLATFORM",
-   "GPL V3 / SEE SOURCE"
-#else
    "RESID / DAG LEM (SID REF)",
    "NES_SND_EMU / SHAY GREEN",
    "JAMES ATHEY (MAINTAINER)",
-   "NES TECHNICAL REFERENCE"
+   "GPL V3 / SEE SOURCE"
 #endif
   };
-  /* Keep all credit lines visible above the footer on the 240px display. */
+  /* Short readable attributions; full copyright and licence notices in
+   docs/CREDITS-AND-LICENSES.md and LICENSES/. Felucca battery cutoffs in
+   beetle_battery_policy.h are from Leo Kuroshita, Hügelton Instruments. */
   for(uint8_t i=0u;i<12u;i++){
    uint16_t y=(uint16_t)(53u+i*12u);
    uint16_t color=(i==0u||i==4u||i==8u||i==9u)?TRACK_PINK:TRACK_WHITE;
@@ -4038,7 +4060,9 @@ static uint8_t blue_live_save(void){
 #if defined(BEETLE_NATIVE_V2) && BEETLE_NATIVE_V2 && BEETLE_NATIVE_STORAGE
  if(track_state.transport.playing||native_safe||native_tripped||native_updating)return 0u;
  beetle_storage_input_lock();track_storage_busy_kind=1u;
- native_pause();
+ /* Even silent setlist autosave must not toggle the analogue amplifier. */
+ uint8_t warm_live=native_live_quiesce();
+ if(!warm_live)native_pause();
  uint8_t *work=beetle_v2_workspace();uint8_t record[BLUE_LIVE_WIRE_BYTES];
  blue_live_encode(&blue_live,record);
  struct beetle_v2_writer w;
@@ -4049,7 +4073,8 @@ static uint8_t blue_live_save(void){
   beetle_write_permit=0u;
  }
  beetle_bd4_live_bind(beetle_v2_workspace(),sizeof(beetle_staged));
- native_start();track_storage_busy_kind=0u;return (uint8_t)(rc==0);
+ if(warm_live)native_live_resume();else native_start();
+ track_storage_busy_kind=0u;return (uint8_t)(rc==0);
 #else
  return 0u;
 #endif
@@ -4072,7 +4097,11 @@ static uint8_t blue_live_load_position(void){
  if(track_state.transport.playing)return 0u;
 #if BEETLE_NATIVE_STORAGE
  beetle_storage_input_lock();track_storage_busy_kind=2u;
- native_pause();
+ /* Keep PC6 analogue output powered. Quiesce at digital zero after a
+  * bounded 256-sample fade and DAC-buffer drain: never cycle the speaker
+  * amplifier for each live song. The ALNK ISR does no project IO. */
+ uint8_t warm_live=native_live_quiesce();
+ if(!warm_live)native_pause();
  /* Realtime progress is tied to bytes returned by the native V2 reader.
   * On legacy storage we still display a stable loading modal and status. */
  blue_live_progress_active=1u;blue_live_progress_percent=0u;
@@ -4081,7 +4110,9 @@ static uint8_t blue_live_load_position(void){
  int rc=beetle_project_load_slot(slot);
  if(rc==TRACK_JOURNAL_OK)blue_live_progress_set(100u);
  blue_live_progress_active=0u;
- native_start();track_storage_busy_kind=0u;
+ if(warm_live)native_live_resume();
+ else native_start();
+ track_storage_busy_kind=0u;
  if(rc!=TRACK_JOURNAL_OK){blue_live_load_error=(uint8_t)(-rc);track_page=45u;return 0u;}
  blue_live_original_loop=track_song.loop;blue_live_loaded_project=1u;
  track_song.loop=0u; /* local to this performance; source project is not saved */
@@ -5949,7 +5980,16 @@ static void track_fm1_poll(void){
       int save_rc=-1;
 #endif
       if(save_rc){blue_kit_edit_notice=3u;}
-      else blue_kit_edit_notice=1u;
+      else{
+       /* The newly stored component presets must be heard immediately
+        * on the edited lane, and the lane reference saved with its project.
+        * The actual timbres remain in the independent global BBK1 bank. */
+       if(track_state.transport.edit_channel<TRACK_CHANNELS){
+        blue_lane_kit[track_state.transport.edit_channel]=src;
+        track_state.dirty=1u;
+       }
+       blue_kit_edit_notice=1u;
+      }
      }
      else blue_kit_edit_notice=2u;
     }

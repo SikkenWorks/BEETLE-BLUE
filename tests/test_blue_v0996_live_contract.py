@@ -3,7 +3,7 @@ r=Path(__file__).resolve().parents[1]
 s=(r/'firmware/fm1-native/track_runtime.h').read_text()
 w=(r/'firmware/fm1-native/beetle_storage_v2_writer.c').read_text()
 page=(r/'firmware/fm1-native/beetle_settings_nav.h').read_text()
-assert 'page<=46u' in page
+assert 'track_page>=43u && track_page<=46u' in s  # Live UI routes are owned by track_runtime
 for marker in ('"NEW PROJECT","LOAD PROJECT"','"LIVE MODE"','"SETLIST","PERFORM"','"CONTINUE CURRENT TRACK","START CURRENT TRACK AGAIN"', 'blue_live_song_done=1u','if(blue_live_next(&blue_live))','beetle_project_load_slot(slot)','track_song.loop=0u','track_state.transport.bpm=beetle_staged.bpm','blue_live_autosave_on_exit()'):
  assert marker in s,marker
 # Leave Setlist via HOME *and* via SEL-to-Perform: both save first.

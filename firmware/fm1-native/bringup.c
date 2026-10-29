@@ -2357,16 +2357,22 @@ void fm1_cstart(void){
   if(!safe && !native_updating && (uint32_t)(etch_ms-beetle_last_battery_sample_ms)>=4000u){
    beetle_last_battery_sample_ms=etch_ms;
    int32_t raw_battery=fm1_adc_read(FM1_ADC_BATT);
-   if(raw_battery>=0){
+   if(raw_battery>=0 && beetle_battery_raw_valid((uint16_t)raw_battery)){
     uint8_t was_battery_valid=track_battery_valid;
     uint8_t old_battery_bars=beetle_battery_bars(track_battery_adc_filtered);
     track_battery_adc_filtered=beetle_battery_filter(track_battery_adc_filtered,(uint16_t)raw_battery,track_battery_valid);
-    track_battery_valid=1u;
+    track_battery_valid=1u;track_battery_bad_reads=0u;
     uint8_t low=beetle_battery_low20(track_battery_adc_filtered,track_battery_low20);
     if(low!=track_battery_low20){track_battery_low20=low;track_battery_ui_dirty=1u;}
     /* Redraw only when the coarse indicator changes, not on ADC noise. */
     if(!was_battery_valid || beetle_battery_bars(track_battery_adc_filtered)!=old_battery_bars)
      track_battery_ui_dirty=1u;
+   }else{
+    /* Missing/stuck ADC must not leave yesterday's battery reading on LCD. */
+    if(track_battery_bad_reads<3u)track_battery_bad_reads++;
+    if(track_battery_bad_reads>=3u && track_battery_valid){
+     track_battery_valid=0u;track_battery_low20=0u;track_battery_ui_dirty=1u;
+    }
    }
   }
 #endif

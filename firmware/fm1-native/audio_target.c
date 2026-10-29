@@ -78,6 +78,13 @@ static volatile uint16_t native_output_fade;
  * PCM smoothly over 256 samples, including sudden FX/filter changes. */
 static volatile uint8_t native_preset_ramp_requested;
 static struct etch_preset_ramp native_preset_ramp;
+/* Live song change: a sample-wise 256-frame fade followed by digital zero.
+ * Only ALNK0 writes fade_remaining and the hold bit after the request.
+ * Foreground never touches DAC DMA buffers or turns PC6 off on warm loads. */
+#ifdef TRACK_FIRMWARE
+static volatile uint16_t native_live_fade_remaining;
+static volatile uint8_t native_live_digital_hold;
+#endif
 static volatile uint16_t native_prepared_blocks;
 static struct etch_output_gate native_output_gate;
 /* Main-loop-owned: never synchronized through the realtime callback. */
@@ -225,6 +232,50 @@ static void native_new_resume(void){
 }
 #endif
 /* Main-only pause: block a leftover ALNK interrupt before transferring ownership. */
+#ifdef TRACK_FIRMWARE
+/* Keep the current DAC clock/PC6 analog bias intact for project swaps.
+ * The fade is serviced by ALNK0 and bounded waits are from foreground only.
+ * Never perform NOR reads, project decode, or screen drawing from ALNK0.
+ * If audio is already suspended/tripped the caller uses its cold fallback. */
+static uint8_t native_live_quiesce(void){
+ fm1_irq_off();
+ const uint8_t eligible=(uint8_t)(!native_suspended && !native_tripped && !native_safe);
+ if(eligible){
+  native_live_digital_hold=0u;
+  native_live_fade_remaining=native_output_enabled?256u:0u;
+ }
+ fm1_irq_enable_all();
+ if(!eligible)return 0u;
+ /* 544 ALNK ticks/frame, 256 fade frames plus a guarded 3-half
+  * drain of already-published DMA blocks. Deadline < 30ms at 44.1k. */
+ const uint32_t begin=fm1_ticks();
+ while(native_live_fade_remaining && (uint32_t)(fm1_ticks()-begin)<1100000u){
+  fm1_wdt_feed();
+ }
+ fm1_irq_off();
+ native_live_digital_hold=1u;
+ native_live_fade_remaining=0u;
+ fm1_irq_enable_all();
+ const uint32_t drain=fm1_ticks();
+ while((uint32_t)(fm1_ticks()-drain)<(ETCH_NATIVE_FRAMES*544u*3u) &&
+       (uint32_t)(fm1_ticks()-begin)<1800000u)fm1_wdt_feed();
+ fm1_irq_off();
+ native_suspended=1u; /* ALNK0 fills freed DMA half with ZERO. */
+ fm1_irq_enable_all();
+#if ETCH_NATIVE_PANEL_MIDI
+ etch_perf_midi_flush(&native_perf_out,native_panel_usb_emit,0);
+#endif
+ return 1u;
+}
+static void native_live_resume(void){
+ native_new_resume(); /* resets voices, keeps PC6, DMA and USB clock alive */
+ fm1_irq_off();
+ native_output_fade=0u;
+ native_live_digital_hold=0u;
+ native_live_fade_remaining=0u;
+ fm1_irq_enable_all();
+}
+#endif
 static void native_pause(void){
  fm1_irq_off();native_suspended=1;native_output_enabled=0u;fm1_audio_output_enable(0u);fm1_audio_stop();fm1_audio_ack_half();fm1_irq_enable_all();
 #if ETCH_NATIVE_PANEL_MIDI
@@ -340,6 +391,18 @@ etch_native_reset(&native_audio);native_audio.keys=keys&0x7ffffffu;}
    right=(int32_t)(((int64_t)right*(gain_prev>>16u))/32767);
    native_audio.master_gain_q16=gain_prev;
 #endif
+#ifdef TRACK_FIRMWARE
+   /* LIVE LOAD: sample-accurate fade to digital zero, then latch zero
+    * throughout flash activity. Never power-cycle analogue PC6. */
+   if(native_live_digital_hold){left=0;right=0;}
+   else if(native_live_fade_remaining){
+    uint16_t remaining=native_live_fade_remaining;
+    left=(left*(int32_t)remaining)/256;
+    right=(right*(int32_t)remaining)/256;
+    native_live_fade_remaining=(uint16_t)(remaining-1u);
+    if(!native_live_fade_remaining)native_live_digital_hold=1u;
+   }
+#endif
    uint32_t pl=(uint32_t)(left<0?-left:left),pr=(uint32_t)(right<0?-right:right);
    if(pl>block_peak)block_peak=pl;if(pr>block_peak)block_peak=pr;
    if(pl>=32767u||pr>=32767u)block_clips++;
@@ -422,6 +485,9 @@ etch_native_reset(&native_audio);native_audio.keys=keys&0x7ffffffu;}
  native_in_audio=0u;
 }
 static void native_start(void){
+#ifdef TRACK_FIRMWARE
+ native_live_fade_remaining=0u;native_live_digital_hold=0u;
+#endif
  native_suspended=0;native_missed_streak=0;native_healthy_blocks=0;native_tripped=0;native_ui_pressure=0;
  native_output_enabled=0;native_output_analog_ready=0;native_boot_audio_released=0;native_output_fade=0;native_prepared_blocks=0;native_halves=0;
  native_preset_ramp_requested=0u;etch_preset_ramp_reset(&native_preset_ramp);

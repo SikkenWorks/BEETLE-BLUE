@@ -1,3 +1,72 @@
+# BEETLE BLUE V1.0 RC10 | Credits and provenance audit (RC9 functionality retained)
+
+**Current firmware:** `BEETLE-BLUE-V1.0.0-RC10-CREDITS-EXPERIMENTAL.fwsc`
+
+## Battery display
+
+The existing BLUE pixel battery in the Tracker and Live Perform uses the **FM1 PB1 / ADC3 battery-voltage bands from Felucca by Leo Kuroshita (@kurogedelic), Hügelton Instruments** (raw cutoffs 531, 561 and 591 in upstream `firmware/src/ui_draw.c`). Display levels are empty / low / ~2/3 / top voltage band. An invalid or repeatedly failed ADC conversion displays `?` instead of silently retaining a stale value. Data is smoothed and read every four seconds outside the audio interrupt. These bands are **not a percent-accurate state-of-charge calibration**. Voltage under USB power may be elevated; a USB bolt means an *enumerated USB data/power connection*, **not verified charging**. This source does not contain a validated charging-current or full-charge input; USB chargers with no data connection cannot be recognized as charging by this indicator.
+
+## Live Mode: quiet project changes
+
+**Setlist -> Live Mode -> Perform** remains the same navigation. At the end of each song the next project is CRC-loaded with the existing genuine progress overlay and its own BPM, kits and song chain. It **does not auto-start**; PLAY starts it when you're ready. RC9 stops cutting power to the analog DAC output for ordinary Live project switches and setlist autosaves: a 256-sample digital fade, a DMA-buffer drain, a suspended renderer while flash data is loaded, and the established fade-in on resume keep PC6 stable. A mid-buffer end-of-song branch that could leave stale PCM now zeroes the unused buffer tail. The cold/recovery path remains for unsafe states and cannot be guaranteed physically pop-free. Actual FM1 analog output, USB recording continuity, hardware charge and DMA reliability remain unverified.
+
+## User Kit presets (important)
+
+The **12 GLOBAL USER KITs** store 14 factory drum components' timbre settings (ADSR, GAIN, PITCH, DRIVE, CHOKE), each with independent values, in the global V2 `BBK1` bank. They are **not** a bank of sample WAV files, not automatically part of a `.bdrum` project export, and do not include MONOLITH's two additional alternate components. In Drum Edit, choose/edit your 14 component presets, then in Kit Designer select a USER KIT 01..12 and press SEL to store. RC9 automatically assigns the successfully stored User Kit to the currently edited channel, so it is heard immediately. The project stores that channel's **reference to the kit**; SAVE the project as well. In Drum Mixer, SELECT picks the kit source for the selected channel, K1/K2/K3 edit an individual global User Kit component, and SEL persists it. A `GLOBAL KIT SAVED` confirmation means the V2 write succeeded; a failed write is not persisted. Later edits to a global User Kit affect all projects referencing that kit.
+
+**Never use Wipe All Storage to solve a Live Mode or battery-display problem.** Wiping deletes projects, usersamples and the global kit bank. Back up important projects and document global User Kit settings before flashing, since the Project Manager does not yet back up the BBK1 bank.
+
+**Tests:** see [`RC10-VALIDATION.md`](RC10-VALIDATION.md) and the inherited [`RC9-VALIDATION.md`](RC9-VALIDATION.md). This is an experimental firmware build, not a proven physical FM1 audio safety release.
+
+## RC10: authoritative attribution and licences
+
+BEETLE BLUE is developed by **SikkenWorks (Joppe Sikken)** as a drum-focused derivative of **BEETLE** and **ETCH**. The underlying **Felucca** FM1 HAL, boot, LCD, audio and OTA foundations are by **Leo Kuroshita (@kurogedelic), Hügelton Instruments**. In particular, Felucca's `firmware/src/ui_draw.c` implements the **531/561/591 ADC battery bands**: BLUE reuses those numerical thresholds and implements its own display, filtering and invalid-reading logic. The indicator does **not** measure actual charging current or exact charge percentage.
+
+See [full credits, source provenance and third-party licensing](docs/CREDITS-AND-LICENSES.md). The distributable source retains `LICENSE` and `LICENSES/`; upstream acknowledgements do not mean all upstream synthesizer engines or assets are compiled into BLUE. RC10 changes attributions and the on-device CREDITS page only; playback, storage, kit formats and Live Mode are otherwise unchanged from RC9.
+
+---
+
+# BEETLE BLUE V1.0.0 RC8 — PROJECT DATA ERROR fix
+
+*Historical RC8 release note, retained for reference. For the current build, use the RC9 firmware and installer listed above.*
+
+## Oorzaak en correctie
+
+De samplecache en het te bewaren project delen hetzelfde RAM. RC7 riep na
+project-capture/decoding `beetle_bd4_live_invalidate()` aan. Die functie schrijft
+cacheflags en wist chunks/attack-snapshots via de oude pointer. Daarmee werd de
+klaargezette song beschadigd voordat de encoder hem controleerde. De fout is
+op de originele RC7 SAVE-wrapper gereproduceerd: `TRACK_JOURNAL_INVALID`,
+diagnose 4 (PATTERN / NOTES), bij de eerste opslag op lege legacy-opslag.
+Hetzelfde gedeelde pad wordt gebruikt voor Storage V2 en projectimports.
+
+RC8 ontkoppelt de cache met `beetle_bd4_live_bind(0,0u)` zonder projectbytes te
+wijzigen. Na de transactie wordt de cache opnieuw opgebouwd. Capture ontkoppelt
+eerst; eerste opslag na initialisatie maakt een verse capture na de bevestiging
+in plaats van oude scratchdata te vertrouwen. Validatie, capaciteitcontroles,
+CRC, schrijfautorisatie en opslagformaat blijven behouden. Geen extra grote
+RAM-buffer; geen automatische wipe, migratie of projectnormalisatie toegevoegd.
+
+
+Zie RC8-VALIDATION.md voor tests en gebruik.
+
+---
+
+# BEETLE BLUE V1.0 RC7 — Storage V2 format fix (EXPERIMENTAL)
+
+**Important:** RC6 and older could leave you on Legacy Storage after `Wipe All Storage`, and RC4's V2 superblock initializer had invalid header bytes. RC7 corrects both defects. With double-confirmed `HOME → WIPE ALL STORAGE`, an already BEETLE-owned legacy volume is reformatted to **Storage V2**, CRC-validated and mounted. This is fully destructive, NOT a data-preserving migration. There is no automatic erase on startup or SAVE. Never flash while your music is unsaved, and do not wipe without a verified full backup and recovery route. See [RC7-VALIDATION.md](RC7-VALIDATION.md) for software/hardware validation boundaries.
+
+# BEETLE BLUE V1.0 RC6 (EXPERIMENTAL)
+
+Storage error classification and new-session staging initialization. **Do not update an FM1 with an unsaved project.** See [RC6-VALIDATION.md](RC6-VALIDATION.md) for limitations.
+
+# BEETLE BLUE V1.0 RC5 (EXPERIMENTAL)
+
+V32 lossless sparse pattern storage and per-lane kit routing fixes. See [RC5-VALIDATION.md](RC5-VALIDATION.md) for measurements, hardware warnings and migration constraints.
+
+# BEETLE BLUE V1.0 RC4 (EXPERIMENTAL)
+
+See [RC4-VALIDATION.md](RC4-VALIDATION.md) for the confirmed storage fixes, destructive wipe warning and remaining FM1 hardware risks.
 
 <p align="center">
   <img src="BEETLE-BLUE.png" alt="BEETLE BLUE pixel-art boot image" width="320">
@@ -17,8 +86,10 @@
 </p>
 
 <p align="center">
-  <sub>Development release: <strong>V1.0 RC8 (EXPERIMENTAL)</strong> · <a href="CHANGELOG.md">Release history</a> · <a href="validation/RC3-FX-SAVE-FIX.md">Software validation</a></sub>
+  <sub>Development release: <strong>V1.0 RC10 (EXPERIMENTAL)</strong> · <a href="CHANGELOG.md">Release history</a> · <a href="validation/RC3-FX-SAVE-FIX.md">Software validation</a></sub>
 </p>
+
+> **Experimental firmware.** V1.0 RC10 has been compiled and checked in software, but flashing, the user-reported `DMA DEADLINE / AUDIO STOP` failure, audio output levels, USB audio and recovery **have not been validated on a physical FM1**. Do not interpret a successful build or host stress test as hardware safety certification. Use a dedicated test device only with verified backups and an independent recovery method.
 
 ---
 
@@ -32,12 +103,11 @@
 
 **BEETLE BLUE** is the drum-focused fork of [BEETLE](https://github.com/SikkenWorks/BEETLE) for the **M-VAVE FM1**. Instead of BEETLE's five synth lanes and one drum lane, BLUE routes its six sequencer lanes to drums. BEETLE BLUE is derived from the BEETLE V1.7.14 code base; its retained project, storage, effects, USB and OTA code should not be confused with features independently validated on real hardware.
 
-| Feature | BEETLE BLUE |
+| Feature | BEETLE BLUE V1.0 RC10 |
 | :-- | :-- |
 | **Drum lanes** | 6 independent sequencer lanes; each has an authoritative project-saved kit assignment |
 | **Patterns** | 48 patterns, up to 16 steps per pattern |
-| **Song Mode** | Up to 64 pattern-chain positions inside one project |
-| **Live Mode** | 24-entry performance setlist spanning the 12 saved projects, with per-song BPM, automatic next-project loading and manual start |
+| **Song Mode** | Up to 64 chain positions |
 | **Built-in kit: BEETLE** | Original 14-sound PCM/µ-law ROM drum kit |
 | **Built-in kit: MONOLITH** | 16 distinct procedural ROM drum patches at 44.1 kHz, inspired by the supplied MONOLITH WAVs |
 | **Global User Kits** | 12 saved timbre-preset slots (not 12 separate WAV banks) |
@@ -47,79 +117,9 @@
 | **Sample editing** | START / END, ADSR, GAIN, DRIVE and CHOKE for user samples |
 | **Mixing** | Lane Mixer and kit-specific Drum Mixer |
 | **Performance** | Punch-In FX, groove controls, mute groups, snapshots, REV step FX and Song Mode |
-| **Project storage** | 12 device project slots; `BDR1` schema **V31** (reads V30 and earlier supported versions); `.bdrum` backup files |
+| **Project storage** | 12 device project slots; `BDR1` schema **V32** (reads supported older versions); `.bdrum` backup files |
 | **USB audio** | Inherited experimental stereo and six-mono-stem capture paths |
 | **UI** | Blue native LCD theme and C-rendered 1920 × 1920 reference captures |
-
-
-## Live Mode
-
-**Live Mode** turns BEETLE BLUE into a setlist-based live instrument. Instead of chaining only patterns within one project, you queue **entire saved projects** in performance order. Each song retains its own BPM, drum-kit assignments, patterns, mixer and effect settings, and Song Chain. When a song finishes, BEETLE BLUE loads the **next project automatically but does not start playing it**. You decide when to begin the next song with **PLAY/STOP**.
-
-Live Mode is **separate from Song Mode**: Song Mode sequences up to 64 pattern-chain positions *inside one project*; Live Mode sequences complete projects *across project slots*.
-
-### Opening Live Mode and HOME navigation
-
-At boot, choose **LIVE MODE**, directly below **NEW PROJECT** and **LOAD PROJECT**. Alternatively, open **HOME → LIVE MODE** from the regular HOME/PROJECTS menu (between SETTINGS and DIAGNOSTICS).
-
-The Live Mode menu contains two options: **SETLIST** and **PERFORM**.
-
-```text
-HOME / PROJECTS
-  LIVE MODE
-    SETLIST
-    PERFORM
-```
-
-- Press **HOME** in SETLIST, PERFORM or the performance stop-options screen to return to the **LIVE MODE** menu.
-- Press **HOME** again to return to the regular **HOME / PROJECTS** menu, even if you originally entered Live Mode from the boot screen.
-- When leaving a modified SETLIST, the firmware attempts its automatic save before completing the navigation. See the storage notes below.
-
-### SETLIST: build your show
-
-A setlist holds up to **24 entries**, referencing the **12 existing device project slots**. You can include the same saved project more than once. Setlist order does **not** change the projects themselves or their individual Song Chains.
-
-| FM1 control | Action in SETLIST |
-| :-- | :-- |
-| **K1** | Select a setlist position |
-| **K2** | Choose an existing, saved project slot for that position |
-| **K4** | Move the selected entry up or down in the setlist |
-| **OCT+** | Insert a setlist position |
-| **OCT−** | Delete the selected setlist position |
-| **HOME** | Auto-save changed setlist and return to LIVE MODE |
-| **SEL** | Continue to PERFORM via the supported Setlist-to-Perform action, saving changes first |
-| **SAVE** | Manually retry saving the setlist |
-
-**Auto Save is intentionally discreet.** When you leave SETLIST, BEETLE BLUE writes the setlist only if it has changed. A successful save shows no extra confirmation and an unchanged setlist does not perform needless flash writes. Setlists are stored **separately from individual `.bdrum` projects**.
-
-If the save fails, the editor reports an error and keeps your changes in RAM rather than claiming they were saved. Use **SAVE** to retry. If you deliberately leave after a failed save, an **UNSAVED** warning remains visible; do not power off assuming those changes are permanent. With no saved projects, the editor must not create a phantom project entry, and **HOME** must still work.
-
-### PERFORM: play complete projects
-
-1. Open **LIVE MODE → PERFORM**. The first saved project in your setlist is loaded with its own BPM and complete project settings.
-2. A **PROJECT LOADING** overlay with a progress bar is displayed while the project loads; for Storage V2, progress is based on the actual project-read/verification work rather than a purely cosmetic timer.
-3. When the screen shows the project is ready, press **PLAY/STOP** to begin. Its Song Chain plays once (if enabled), otherwise the selected pattern runs according to Live Mode's one-song completion rule.
-4. At the **end of the song**, playback stops. BEETLE BLUE loads and verifies the next saved project and shows it as **ready**. The next song **never auto-plays**: press **PLAY/STOP** when you want it to start.
-5. Repeat for the remaining setlist entries. Normal project playback and the original Song Chain editor remain independent of Live Mode.
-
-**If you press PLAY/STOP during playback**, the current performance stops and offers two options:
-
-| Stop option | Result |
-| :-- | :-- |
-| **CONTINUE CURRENT TRACK** | Resume from the stored step / Song Chain position |
-| **START CURRENT TRACK AGAIN** | Restart the current song from its beginning |
-
-Turn **K1** to choose an option and press **SEL** to confirm. **HOME** exits the stop-options screen to the Live Mode menu. Resuming is step-position based, **not sample-accurate** within a streaming audio sample.
-
-Live Mode loads and validates projects in the **foreground**, never inside the real-time audio interrupt. A failed project load must not be treated as a successfully prepared song. The blue battery symbol is also displayed in PERFORM; its USB bolt indicates a recognized data connection, **not verified charging** (see [Battery HUD](#battery-hud-v10-rc1)).
-
-### Live Mode storage requirements and safety
-
-- Persistent Setlists require a **valid, writable Storage V2** volume. On older Legacy/12K storage, editing in RAM does not establish persistent setlist storage. Do not interpret a failed Auto Save as success.
-- **Wipe All Storage is destructive**, not a non-destructive Live Mode setup action. It can remove all stored projects, global samples, kit data and setlists. Only format after making and verifying backups and establishing a recovery path.
-- A setlist refers to existing saved slots: verify the songs are present and loadable before a performance. This is not a backup mechanism.
-- **Hardware validation remains required.** Host tests and a successful firmware build do not prove real-device project-switch latency, battery indications, audio stability, loudness or recovery after interrupted storage operations. BEETLE BLUE remains experimental for critical live use.
-
 
 ### V1.0 RC3: project data error when saving after step-FX type changes
 
@@ -162,6 +162,16 @@ Back up the project through the existing Project Manager or compatible transfer
 route first, then reduce the project's notes/FX or project-owned sample content.
 Do not delete project 1, format the device, or power off during a write. The
 physical FM1 behavior and the safe restore path are not certified.
+
+### Live Mode: project setlists (V1.0 RC1)
+
+At power-on the FM1 offers three independent choices: **NEW PROJECT**, **LOAD PROJECT**, and **LIVE MODE**. You can also open **HOME → LIVE MODE** at any time from the normal Projects menu (between SETTINGS and DIAGNOSTICS). LIVE MODE opens **SETLIST** or **PERFORM**; it is separate from the existing per-project 64-position Song Chain.
+
+- **SETLIST** holds up to **24 song positions**, each referencing one of the existing **12 project slots** (the same project can appear more than once). Turn **K1** to select a setlist position, **K2** to assign a project slot, **K4** to move that position up/down, **OCT+** to insert a position, **OCT−** to delete one. **HOME** goes back to the LIVE MODE menu (with silent autosave when changed). Press HOME again to return to the normal HOME/PROJECTS menu. This same nested HOME route applies whether LIVE MODE was opened at boot or through HOME. The setlist **automatically saves on leaving SETLIST** with HOME or SEL-to-Perform. Successful saves are visually silent. Unmodified setlists do not incur needless NOR writes. If saving fails, SETLIST stays open, keeps all RAM edits and displays an error. SAVE can also manually retry. The setlist is never saved as part of an individual BDR1 project.
+- **PERFORM** loads the first project's complete settings, including its own BPM, instruments, drum kits, patterns and Song Chain. Press **PLAY/STOP** to start. The current song runs once, ignoring its saved Song Chain loop flag only for this performance. On the last Song Chain position, or after the selected pattern if SONG is off, playback stops, and the next project is CRC-loaded in the foreground. **The next song remains stopped until you press PLAY/STOP again.** No project loading or flash access occurs in the audio interrupt.
+- If **PLAY/STOP** is pressed while a live performance is playing, BEETLE BLUE stops and displays **CONTINUE CURRENT TRACK** or **START CURRENT TRACK AGAIN**. Turn **K1** to select; **SEL** resumes at the saved step / Song Chain position or restarts the whole song. **HOME** returns to the LIVE MODE menu; a second HOME returns to the normal HOME/PROJECTS menu.
+- **Persistence requirement:** a setlist can be saved/recalled across restarts on an existing, valid **Storage V2** volume. Older journal-only volumes can edit in RAM, but automatic save fails and the editor stays open with an error instead of exiting and silently losing changes; this release does **not** auto-provision V2 storage. Back up projects and samples before any firmware update. There is no automatic storage migration.
+- **Caveat:** the full Live Mode workflow and NOR A/B saves are software-tested only. Real FM1 audio transitions, project-load latency, power-loss behaviour and loudness must be validated on hardware before using Live Mode on stage.
 
 ### Battery HUD (V1.0 RC1)
 
@@ -219,7 +229,6 @@ The 16 original MONOLITH WAVs are retained in the source archive as development/
 8. **Mix:** press **GLO** for the Lane Mixer, then **GLO again** for the Drum Mixer.
 9. **CH6 extra hits:** NOTE3 mode retains step-FX playback. The former KIT tracker field is now **RAT** (ratchet/retrigger count).
 10. **Arrange and save:** press **ARP** for Song Mode and use **SAVE / HOME** for project operations. Back up before changing firmware or storage.
-11. **Prepare a live show:** open **HOME → LIVE MODE → SETLIST** to arrange saved project slots, then select **PERFORM** to play them one by one. See [Live Mode](#live-mode).
 
 > **Control terminology:** **SELECT** means the rotary encoder; **SEL** means pressing that encoder. The behavior of a knob can vary by screen. Holding **SEQ** while turning SELECT is different from pressing SEL.
 
@@ -288,7 +297,7 @@ Pressing **GLO** cycles through **Lane Mixer → Drum Mixer → Tracker**.
 ## Projects, Storage and Compatibility
 
 - **Capacity:** 48 patterns, **12** device project slots and 64 Song Mode chain positions. This release does **not** add 64 patterns or 16 project slots, because safely doing so requires verified RAM, serialization and flash-layout changes.
-- **Current format:** `BDR1` project **schema V31**, including the six lane-kit settings. V29 and V30 decoders remain supported; **older firmware cannot read V31 saves**. Preserve backups when upgrading.
+- **Current format:** `BDR1` project **schema V32**, with compact lossless pattern encoding and lane-kit settings. Supported older V31/V30 projects can be loaded; **older firmware cannot be assumed to read V32 saves**. Preserve backups when upgrading.
 - **Backups:** `.bdrum` holds BLUE project data, whereas `.beetlebank` is for the optional global sample library. Neither fully backs up the separate `BBK1` global kit bank.
 - **Not interchangeable:** BLUE `BDR1` and the original BEETLE `TRK1` projects should not be treated as equivalent or imported by renaming a file extension.
 - **Shared flash:** projects and global user samples share device storage. Never overwrite, migrate, format or repair storage merely because a different firmware does not recognize its contents.
@@ -303,13 +312,13 @@ The current release includes two browser tools, individually or together in the 
 
 | File | Purpose |
 | :-- | :-- |
-| [`WebInstaller.html`](WebInstaller.html) | USB-MIDI firmware installer with the V0.99.5 `.fwsc` embedded and verified by hash |
+| [`WebInstaller.html`](WebInstaller.html) | USB-MIDI firmware installer with the current V1.0 RC10 `.fwsc` embedded and verified by hash |
 | [`BEETLE-BLUE-Project-Manager.html`](BEETLE-BLUE-Project-Manager.html) | Backup, restore and optional user-sample management |
 | [`BEETLE-BLUE-Manager.html`](BEETLE-BLUE-Manager.html) | All-in-One Manager combining the Project Manager and WebInstaller |
 
 The WebInstaller and Project Manager are the only supported browser tools in this release. WebInstaller firmware/hash checks validate package identity and structure; they do not guarantee successful or safe physical OTA installation.
 
-`UI-CAPTURES-NATIVE-1920/` includes **17** reference captures produced using native C LCD drawing code with seeded interface states, including the tracker and Drum Mixer. They are captured at **240×240** and enlarged **8× with nearest-neighbor** to **1920×1920**. They are **not** photographs of the FM1 LCD, and not an exhaustive capture of every UI state.
+`UI-CAPTURES-NATIVE-1920/` includes **26** reference captures produced using native C LCD drawing code with seeded interface states, including the tracker and Drum Mixer. They are captured at **240×240** and enlarged **8× with nearest-neighbor** to **1920×1920**. They are **not** photographs of the FM1 LCD, and not an exhaustive capture of every UI state.
 
 > **GitHub Pages note:** the links above assume the corresponding HTML files are published in the repository root. `BEETLE-BLUE.png` must also exist alongside this README if the top logo is to render correctly; that logo file is not included in the source archive.
 
@@ -396,10 +405,10 @@ For `DMA DEADLINE / AUDIO STOP` failures, include how many rapid kick triggers w
 | Project / contributor | Attribution |
 | :-- | :-- |
 | **[BEETLE](https://github.com/SikkenWorks/BEETLE)** · SikkenWorks | Original FM1 tracker, sequencing, project storage, performance, DSP, USB and OTA foundation |
-| **[Felucca](https://github.com/hugelton/Felucca)** · Leo Kuroshita / Hügelton Instruments | FM1 hardware abstraction, LCD/input, startup, audio and OTA foundation |
+| **[Felucca](https://github.com/hugelton/Felucca)** · Leo Kuroshita (@kurogedelic) / Hügelton Instruments | FM1 hardware abstraction, LCD/input, startup, audio and OTA foundation; **battery voltage thresholds (531/561/591) from `firmware/src/ui_draw.c`** |
 | **[ETCH](https://github.com/SikkenWorks/ETCH)** · SikkenWorks | Earlier FM1 firmware and part of the protected firmware/OTA packaging lineage |
 | **JieLi Technology** | Target-chip and toolchain manufacturer |
 
-The visible on-device BLUE credits no longer include a reSID label. This does **not** authorize removal of any copyright or license notices that are legally required for inherited source files. The original MONOLITH WAVs were user-supplied and their public redistribution rights have **not** been independently confirmed. Check those rights before publishing the WAV assets.
+The on-device BLUE CREDITS page identifies SikkenWorks, BEETLE/ETCH, Felucca (including the battery bands), and the JieLi platform; space-limited LCD credits refer to this full source notice. The retained reSID / Nes_Snd_Emu files are technical reference/BEETLE lineage, not claims that their original C++ emulators are compiled into BLUE. This does **not** authorize removal of any copyright or license notices that are legally required for inherited source files. The original MONOLITH WAVs were user-supplied and their public redistribution rights have **not** been independently confirmed. Check those rights before publishing the WAV assets.
 
 <p align="center"><strong>BEETLE BLUE · SikkenWorks · Born out of passion.</strong></p>

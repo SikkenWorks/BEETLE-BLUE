@@ -228,24 +228,32 @@ static void native_credits(void){
 if(track_page==28u){
   track_page_header("CREDITS",43u);
   static const char *const lines[]={
+#if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
+   "BEETLE BLUE / SIKKENWORKS",
+   "JOPPE SIKKEN",
+   "BEETLE + ETCH DERIVATIVE",
+   "",
+   "FELUCCA / LEO KUROSHITA",
+   "HUGELTON INSTRUMENTS",
+   "FM1 HAL / AUDIO / OTA",
+   "BATTERY BANDS: FELUCCA",
+   "",
+   "JIELI / AC79 PLATFORM",
+   "GPL-3.0-ONLY",
+   "FULL CREDITS IN SOURCE"
+#else
    "BEETLE / SIKKENWORKS",
    "JOPPE SIKKEN",
    "DESIGN / FIRMWARE / UI",
    "",
    "FELUCCA / LEO KUROSHITA",
    "HUGELTON INSTRUMENTS",
-   "FM1 HAL / BOOT / OTA",
+   "FM1 HAL / AUDIO / OTA",
    "",
-#if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
-   "BEETLE BLUE / DRUMS",
-   "DIGITAL DRUM ENGINE",
-   "FM1 / JIELI PLATFORM",
-   "GPL V3 / SEE SOURCE"
-#else
    "RESID / DAG LEM (SID REF)",
    "NES_SND_EMU / SHAY GREEN",
    "JAMES ATHEY (MAINTAINER)",
-   "NES TECHNICAL REFERENCE"
+   "GPL V3 / SEE SOURCE"
 #endif
   };
   /* Keep all credit lines visible above the footer on the 240px display. */
