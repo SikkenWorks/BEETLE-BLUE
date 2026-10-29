@@ -280,7 +280,7 @@ static uint32_t beetle_new_perf_restart_ms,beetle_new_perf_draw_ms;
 static uint32_t beetle_new_perf_loading_ms;
 static uint32_t beetle_new_perf_total_ms,beetle_new_perf_count;
 static uint8_t beetle_new_perf_paint_pending;
-static uint8_t track_help_offset; /* Chapter-local scroll, never saved in project. */
+static uint8_t track_help_page; /* Topic-local page, never saved in project. */
 static uint8_t track_help_chapter;
 static struct beetle_load_input_gate track_load_input_guard; /* legacy SEL-delete fence */
 static struct beetle_io_input_gate track_io_input_guard; /* ALL controls during and after disk I/O */
@@ -3130,39 +3130,38 @@ static void track_fm1_paint(void){
   beetle_draw_keyboard_octave(216u);return;
  }
  if(track_page==19u){
+  /* RC12 HELP is paginated cards rather than a dense scrolling paragraph.
+   * Three independent actions per screen; page/chapter changes only via K1/K2. */
   track_page_header("HELP",43u);
-  uint8_t first=(uint8_t)(beetle_help_chapter_heading(track_help_chapter)+1u);
-  uint8_t length=beetle_help_chapter_length(track_help_chapter);
-  uint8_t max=beetle_help_chapter_maxscroll(track_help_chapter);
-  const char *chapter=beetle_help_lines[first-1u]+2;
+  const struct beetle_help_topic *topic=&beetle_help_topics[track_help_chapter];
+  uint8_t pages=beetle_help_page_count(track_help_chapter);
   char counter[16],num[8],total[8];
   track_fmt_int(num,(uint32_t)track_help_chapter+1u);
-  track_fmt_int(total,beetle_help_chapter_count());
+  track_fmt_int(total,BEETLE_HELP_TOPIC_COUNT);
   uint8_t n=0u,j=0u;while(num[j]&&n<5u)counter[n++]=num[j++];counter[n++]='/';
   j=0u;while(total[j]&&n<11u)counter[n++]=total[j++];counter[n]=0;
-  track_pix_text("K2: CHAPTER   K1: SCROLL",9u,49u,TRACK_PINK);
+  track_pix_text("K2 TOPIC  /  K1 PAGE",10u,49u,TRACK_PINK);
   lcd_fill(9u,63u,221u,1u,0x1814u);
-  lcd_fill(9u,66u,219u,14u,0x100Au);
-  track_pix_text(chapter,12u,69u,TRACK_BRIGHT);
-  track_pix_text(counter,196u,69u,TRACK_PINK);
-  for(uint8_t row=0u;row<BEETLE_HELP_VISIBLE;row++){
-   uint8_t local=(uint8_t)(track_help_offset+row);
-   if(local>=length)break;
-   uint8_t idx=(uint8_t)(first+local);
-   track_pix_text(beetle_help_lines[idx],12u,(uint16_t)(86u+(uint16_t)row*12u),TRACK_WHITE);
+  lcd_fill(9u,66u,220u,14u,0x100Au);
+  track_pix_text(topic->title,12u,69u,TRACK_BRIGHT);
+  track_pix_text(counter,197u,69u,TRACK_PINK);
+  for(uint8_t row=0u;row<BEETLE_HELP_CARDS_PER_PAGE;row++){
+   uint8_t local=(uint8_t)(track_help_page*BEETLE_HELP_CARDS_PER_PAGE+row);
+   if(local>=topic->count)break;
+   const struct beetle_help_card *card=&beetle_help_cards[topic->first+local];
+   uint16_t top=(uint16_t)(83u+(uint16_t)row*38u);
+   lcd_fill(9u,top,220u,34u,TRACK_ROW_BG);
+   lcd_fill(9u,top,3u,34u,TRACK_PINK);
+   track_pix_text(card->title,18u,(uint16_t)(top+4u),TRACK_BRIGHT);
+   track_pix_text(card->detail,18u,(uint16_t)(top+18u),TRACK_WHITE);
   }
-  lcd_fill(231u,84u,2u,110u,0x3807u);
-  uint16_t thumb_y=(uint16_t)(84u+(max?(uint32_t)track_help_offset*92u/max:0u));
-  lcd_fill(230u,thumb_y,4u,18u,TRACK_PINK);
   lcd_fill(9u,201u,221u,1u,0x1814u);
-  track_pix_text("HOME: MENU  SEQ: TRACKER",10u,208u,TRACK_BRIGHT);
-  char count[18]="";char a[8],b[8];
-  uint8_t seen=(uint8_t)(track_help_offset+BEETLE_HELP_VISIBLE);
-  if(seen>length)seen=length;
-  track_fmt_int(a,seen);track_fmt_int(b,length);
+  track_pix_text("HOME: MENU  SEQ: TRACKER",10u,207u,TRACK_BRIGHT);
+  char count[18]="",a[8],b[8];
+  track_fmt_int(a,(uint32_t)track_help_page+1u);track_fmt_int(b,pages);
   n=0u;j=0u;while(a[j]&&n<8u)count[n++]=a[j++];count[n++]='/';
   j=0u;while(b[j]&&n<15u)count[n++]=b[j++];count[n]=0;
-  track_pix_center(count,120u,225u,TRACK_PINK);
+  track_pix_center(count,120u,224u,TRACK_PINK);
   return;
  }
  if(track_page==47u){
@@ -3283,7 +3282,7 @@ static void track_fm1_paint(void){
   track_pix_center("K1 CHOOSE   SEL OPEN",120u,209u,TRACK_PINK);
   track_pix_center(
 #if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
- "BEETLE BLUE V1.0 RC10",
+ "BEETLE BLUE V1.0 RC12",
 #else
  "BEETLE V1.7.14",
 #endif
@@ -5031,12 +5030,12 @@ static void track_fm1_poll(void){
   * Trap navigation here so HOME does not accidentally arm long-press guide. */
  if(track_page==19u){
   if(k1){
-   track_help_offset=beetle_help_chapter_scroll(track_help_chapter,track_help_offset,k1);
+   track_help_page=beetle_help_page_shift(track_help_chapter,track_help_page,k1);
    changed=1u;
   }
   if(k2){
-   uint8_t chapter=beetle_help_chapter_shift(track_help_chapter,k2);
-   if(chapter!=track_help_chapter){track_help_chapter=chapter;track_help_offset=0u;changed=1u;}
+   uint8_t chapter=beetle_help_topic_shift(track_help_chapter,k2);
+   if(chapter!=track_help_chapter){track_help_chapter=chapter;track_help_page=0u;changed=1u;}
   }
   if(pressed&(1u<<8)){track_page=1u;track_home_fired=1u;track_home_since=now;changed=1u;}
   if(released&(1u<<8)){track_home_fired=0u;track_home_since=0u;}
@@ -6242,7 +6241,7 @@ static void track_fm1_poll(void){
     }else if(track_menu_index==5u){
      track_page=28u;changed=1u;
     }else if(track_menu_index==4u){
-     track_help_chapter=0u;track_help_offset=0u;track_page=19u;changed=1u;
+     track_help_chapter=0u;track_help_page=0u;track_page=19u;changed=1u;
     }else if(track_menu_index==3u){
      if(track_state.dirty){track_unsaved_action=2u;track_page=13u;}
      else if((int32_t)(now-track_new_project_veto_until)>=0)beetle_project_new_session();

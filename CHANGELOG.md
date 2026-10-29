@@ -1,3 +1,19 @@
+## V1.0.0 RC12 — Readable, paginated on-device HELP (EXPERIMENTAL)
+
+- Replaced dense HELP paragraphs with 66 concise two-line action cards in ten topics, showing a maximum of three separated cards per page.
+- K2 selects a topic, K1 pages through its cards. HOME and SEQ retain prior navigation. No project or storage format changes.
+- Updated on-device version/credits string, README controls and native HELP test harness. RC12 flashable firmware remains gated on release/recovery proof; native builds and reference rendering are not hardware tests.
+- Current project root contains no historical release binaries. Older histories remain in CHANGELOG and `validation/archive/`.
+
+## Documentation maintenance — RC11 operator guide / HELP source sync
+
+- Replaced the accumulated RC4–RC10 paragraphs in README with a single up-to-date, English user guide. Historical release notes remain in CHANGELOG and validation/archive.
+- Corrected native FM1 HELP for **SEQ+K4 independent lane length (01–16)**, six lengths per pattern, V33 project compatibility and the Live Mode Setlist/Perform workflow.
+- Recompiled writable/read-only native APP binaries and passed fixed-width HELP, lane-length and V32→V33 regression tests. Original RC11 flashable WebInstaller has **not** been modified; rebuilt image is distributed as a non-flashable lab container because the project's release gate lacks verified recovery proof.
+- Removed obsolete firmware/installer/manager duplicates and old manifests from the current project root. Added a reusable release-hygiene script and operating rules.
+
+---
+
 ## V1.0.0 RC11 | Per-pattern six-lane loop length (experimental)
 
 - Added **independent 1–16 step length for CH1–CH6 in each of the 48 patterns**; default 16. Hold **SEQ and rotate K4** on the tracker to set the selected lane's length. `LEN xx` shows its length. K1 step navigation respects the selected lane.

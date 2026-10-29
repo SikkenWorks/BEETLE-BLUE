@@ -1,0 +1,17 @@
+{
+  "version": "BEETLE BLUE V1.0 RC9",
+  "product": "FM-1_2124",
+  "app_sha256": "ed5842f4ab922618296c18c32edfdf55326db65c7d70539fe9cdf9c5d79f6dbe",
+  "firmware_sha256": "89bf44eb8f3da622c6423d464e0914e54291b5ab3b4540058fdc4ff2c1d83e83",
+  "reference_sha256": "3db23b99873d7005e0c8d1b94372349a5be3bd80651a90053354aec17eef7ece",
+  "checks": {
+    "app_audit": true,
+    "protected_first_16KiB_unchanged": true,
+    "ota_loader_unchanged": true,
+    "app_decryption_matches": true,
+    "same_container_shape": true
+  },
+  "fm1_hardware_tested": false,
+  "hardware_pop_free_confirmed": false,
+  "true_charging_current_detected": false
+}

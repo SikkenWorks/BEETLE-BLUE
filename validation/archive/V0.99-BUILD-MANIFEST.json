@@ -1,0 +1,21 @@
+{
+  "release": "BEETLE BLUE V0.99",
+  "status": "EXPERIMENTAL / HARDWARE UNVERIFIED",
+  "fwsc_file": "BEETLE-BLUE-V0.99-FM1-EXPERIMENTAL.fwsc",
+  "fwsc_sha256": "fb5e8f8b63077dd94a6a96b410ca2119fd2f7ea041532ce26c04f31a247d36e6",
+  "fwsc_bytes": 610086,
+  "native_app_bytes": 525068,
+  "native_app_limit": 581564,
+  "native_app_headroom": 56496,
+  "project_schema": "BDR1 V30",
+  "patterns": 48,
+  "project_slots": 12,
+  "web_simulator": false,
+  "kit_sources": [
+    "BEETLE",
+    "MONOLITH",
+    "12 BBK1 user presets"
+  ],
+  "tests": "tests/run_blue_v099.sh",
+  "validation": "validation/V0.99-RESULTS.md"
+}

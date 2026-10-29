@@ -1,0 +1,20 @@
+{
+  "firmware": "BEETLE BLUE V1.0.0 RC2 STORAGE CAPACITY DIAGNOSTICS AND SAFE ORPHAN RECLAIM",
+  "product": "FM-1_2124",
+  "package_sha256": "1a3bcacfce8e14c1e68f6ee51818fbad88d683e5c32c942e79aa65c6abfff873",
+  "app_sha256": "30023e02a8e2872b57a08fe00eb001fdb8187468eaa4a167d0d03a77277f9a74",
+  "source_reference": "BEETLE-BLUE-V1.0.0-RC1-FM1-EXPERIMENTAL.fwsc",
+  "reference_sha256": "a48da286432fe5d50d27db4c7d7167cb27c4ab856be77502d5e674378b1169c6",
+  "checks": {
+    "protected_header_identical": true,
+    "ota_identical": true,
+    "decrypted_app_matches": true,
+    "container_shape_identical": true,
+    "native_app_audit": true
+  },
+  "hardware_tested": false,
+  "ota_recovery_proven": false,
+  "all_downloads_release": "BEETLE BLUE V1.0.0 RC2",
+  "webinstaller_embedded_sha256": "1a3bcacfce8e14c1e68f6ee51818fbad88d683e5c32c942e79aa65c6abfff873",
+  "all_in_one_installer_embedded_sha256": "1a3bcacfce8e14c1e68f6ee51818fbad88d683e5c32c942e79aa65c6abfff873"
+}

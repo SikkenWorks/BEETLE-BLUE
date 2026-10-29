@@ -1,0 +1,14 @@
+{
+  "release": "V0.95-pre-RC-experimental",
+  "fwsc": "BEETLE-BLUE-V0.95-FM1-EXPERIMENTAL.fwsc",
+  "fwsc_sha256": "bb9f63bf9a14d208ec198c1877c5d27d8b4e7f576295d38d58d97a80cceb4f42",
+  "app_sha256": "d66b0bd7737567d51a711b42b853c6062e9f76a9274acb81ce019e22c84196b7",
+  "app_bytes": 523212,
+  "hardware_validated": false,
+  "project_format": "BDR1 V30",
+  "global_kit_format": "BBK1",
+  "step_fx_rev_code": 12,
+  "rev_pcm_factory": true,
+  "rev_monolith": "reverse-style synthesis, not PCM time reversal",
+  "rev_storage_v2_streaming": false
+}

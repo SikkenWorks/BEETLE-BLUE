@@ -1,0 +1,21 @@
+{
+  "version": "BEETLE BLUE V0.93",
+  "native_app_bytes": 572908,
+  "native_app_limit": 581564,
+  "monolith_sample_count": 16,
+  "embedded_adpcm_bytes": 50800,
+  "source_samples_hz": 44100,
+  "embedded_samples_hz": 8000,
+  "samples_are_lossy_and_trimmed": true,
+  "physical_fm1_validated": false,
+  "sha256": {
+    "BEETLE-BLUE-V0.93-FM1-EXPERIMENTAL.fwsc": "44b4a286cf30b9bc9ab7031f82e663c09aa6460e49cecbbccb40ab057145160c",
+    "BEETLE-BLUE-V0.93-WebInstaller.html": "59f97a53a6c5b323e7cd1218d16dd5f0f003367623a55e76797514bcccaace22",
+    "BEETLE-BLUE-V0.93-simulator.html": "7e53110870a9269e3d9fadec93d61bf3fba1d30b3f2659dd3cfba9d369a5f59b",
+    "BEETLE-BLUE-Manager.html": "ece0d69fa3a9b12749504ef8180e77a36bc98c6867cad8aa080e20197f79d096",
+    "BEETLE-BLUE-Project-Manager.html": "b6aa8ae3f3d99fa461d500b57e263baec4721b29e9266df5c99f7fcc99ea2ba4",
+    "BEETLE-BLUE-V0.93-TRACKER-NATIVE-1920x1920.png": "66c87002cb380ca57686cabfb598aad8af1664d92c100327b443a1aa5acae10a"
+  },
+  "source_build_command": "python firmware/fm1-native/build.py --drum-edition --beetle-storage-lab --beetle-v2 --updater --usb-audio",
+  "notes": "Previous double-kick DMA DEADLINE on physical FM1 not confirmed fixed. Unverified flash safety; dedicated test hardware only."
+}

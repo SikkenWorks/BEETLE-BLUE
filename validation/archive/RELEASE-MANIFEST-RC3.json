@@ -1,0 +1,22 @@
+{
+  "kind": "EXPERIMENTAL RC3 FX SAVE REPAIR AND DIAGNOSTIC - HARDWARE UNVERIFIED",
+  "firmware": "BEETLE-BLUE-V1.0.0-RC3-FX-SAVE-FIX-EXPERIMENTAL.fwsc",
+  "product": "FM-1_2124",
+  "firmware_sha256": "b417aa28011796abe49bbea032111fb6eba58e2630a1629a1e6b632d69ef7dda",
+  "app_sha256": "5d62e6c972a8f66ce1af09f4e4412d822e32ea25c7f02fa6b13d5ec7992ee86d",
+  "checks": {
+    "app_audit": true,
+    "container_valid": true,
+    "original_header_unchanged": true,
+    "OTA_loader_unchanged": true,
+    "roundtrip": true
+  },
+  "hardware_validated": false,
+  "do_not_flash_if_current_session_unsaved": true,
+  "scope": "correct illegal step-FX value on type switch; repair only illegal FX values in staged save copy; other fields fail closed; CRC, flash allocation and layout unchanged",
+  "source_version": "BEETLE-BLUE-V1.0.0-RC3",
+  "installer_sha256": "e7e94efb8974758c5a92c24af296ecb2ae31585b70ebdc46fb46216d74fb8e71",
+  "manager_sha256": "6da39c9cbb240ae6f9f1b3b00c81739b089dd5b01bef93b38b975acec657dde7",
+  "native_writable_linked_and_audited": true,
+  "native_readonly_build_verified": false
+}

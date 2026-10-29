@@ -1,0 +1,17 @@
+{
+  "version": "BEETLE BLUE V1.0.0 RC12",
+  "feature": "paginated native on-device HELP",
+  "project_format": "BDR1 V33",
+  "help_topics": 10,
+  "help_cards": 66,
+  "cards_per_page": 3,
+  "project_data_format_changed": false,
+  "firmware_app_size_bytes": 538660,
+  "firmware_app_sha256": "cf6df255d937436fabb6803104d7d97258e2819c64c58962c97dbacc743ea9d6",
+  "readonly_app_sha256": "64ee2b258c0612a6f8d23a030ce333fa59aafb184056881e35f11df2c68c22ea",
+  "lab_fwsc_sha256": "4679c508844850f7970786444fc5443027b63931337674923144f50e3a9dab27",
+  "flashable_fwsc_released": false,
+  "recovery_proof_present": false,
+  "fm1_hardware_tested": false,
+  "webinstaller_updated_to_rc12": false
+}
