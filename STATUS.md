@@ -1,16 +1,15 @@
-# BEETLE BLUE V1.1 — Release Status
+# BEETLE BLUE V1.2 — Release Status
 
-- **Release:** BEETLE BLUE **V1.1**. Full `.fwsc` firmware package with the native V1.1 application, `flash.bin` and `ota.bin`; not a LAB-only build.
-- **Hardware testing:** The developer reports extensive testing of BEETLE BLUE on **two physical M-VAVE FM1 units**. The exact newly rebranded V1.1 binary has not been separately recorded in an on-device OTA/recovery validation log in this archive.
-- **Package identity:** `FM-1_2124` on `AC791N`, unchanged from the preceding BLUE release. Project format `BDR1 V33`, Storage V2 partition and updater remain unchanged.
-- **Firmware checks:** Package CRC/layout, decryption, native application audit, app fit, bootheader preservation and byte-for-byte OTA-loader parity have passed offline validation.
-- **On-device HELP:** Ten topics, 66 short cards, three per screen maximum; K2 topic, K1 page. HELP displays V1.1.
-- **Project features:** Six independent drum lanes, 1–16 steps per lane, 48 patterns, Song Mode and Live Mode. No project migration or storage wipe required solely for this renaming.
-- **Web tools:** `WebInstaller.html`, `BEETLE-BLUE-Project-Manager.html` and `BEETLE-BLUE-Manager.html` are pinned to the exact V1.1 firmware where applicable.
-- **Bootloader:** Inherited `uboot.boot` CRC discrepancy is documented. Header and OTA bytes are deliberately left unchanged, not silently rewritten.
-- **Release hygiene:** README is the current operating manual only. Historical versions and bug fixes are documented in CHANGELOG and the archived source history.
+- **Firmware:** V1.2 complete FM1 `.fwsc` package, built from current source.
+- **Identity:** `FM-1_2124` on `AC791N`, unchanged from V1.1.
+- **Storage / format:** Storage V2 and `BDR1 V33` unchanged; no wipe or migration for this update.
+- **Official return path:** USB-MIDI OTA accepts **the verified M-VAVE stock V15 package** using its pinned flash SHA-256 and original loader metadata, as required by The Firmware Hub's **Back to official V15** workflow. A firmware request now preempts incomplete project or sample transfers, which previously could block it.
+- **Long transfers:** global session budget extended to 15 minutes; individual read retries remain bounded and aborts are supported.
+- **Stock V16:** not implicitly supported. Different stock versions must be validated separately rather than allowing arbitrary loaders.
+- **Hardware:** Developer reports extensive BEETLE BLUE testing on two M-VAVE FM1 devices. No independent log of the *exact V1.2 -> official V15 via Hub* transition is included.
+- **Package checks:** Native writable and read-only builds, app memory limit, firmware CRC/identity, bootheader/OTA preservation, and nested webtool integrity passed software tests.
+- **Safety:** No bootloader/OTA bytes changed; don't flash without a verified backup, adequate power and working rescue route.
+- **Docs:** README is only the current user guide. Version history belongs to CHANGELOG.
 
-**V1.1 `.fwsc` SHA-256:** `b96f70294c44ed5f7b44e0cc66dc35319c9de9744222ea92f48b5b94129b3a47`  
-**V1.1 native app SHA-256:** `80a9be06d8a88d38fc8816853419cb3aa2eecf5d9711babe8d1e5da0b8cdf833`
-
-Before installation, back up projects, user sample banks and User Kit settings; keep a verified recovery path available. Offline package validation does not substitute for a device-specific flash/recovery test.
+**V1.2 firmware SHA-256:** `a70b43f9a3dc1a0ed70fcb04c61ef82ed807294e8156e170217a6a9fcd754a74`
+**V1.2 app SHA-256:** `bc7aa07ffd0598a4e259381b7cc6534fd5651e9559002bba7e7d090776bd598d`

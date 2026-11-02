@@ -3130,7 +3130,7 @@ static void track_fm1_paint(void){
   beetle_draw_keyboard_octave(216u);return;
  }
  if(track_page==19u){
-  /* V1.1 HELP is paginated cards rather than a dense scrolling paragraph.
+  /* V1.2 HELP is paginated cards rather than a dense scrolling paragraph.
    * Three independent actions per screen; page/chapter changes only via K1/K2. */
   track_page_header("HELP",43u);
   const struct beetle_help_topic *topic=&beetle_help_topics[track_help_chapter];
@@ -3282,7 +3282,7 @@ static void track_fm1_paint(void){
   track_pix_center("K1 CHOOSE   SEL OPEN",120u,209u,TRACK_PINK);
   track_pix_center(
 #if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
- "BEETLE BLUE V1.1",
+ "BEETLE BLUE V1.2",
 #else
  "BEETLE V1.7.14",
 #endif

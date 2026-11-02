@@ -142,6 +142,23 @@ static int beetle_mig_initialize(void){
 #endif
 /* Return 1 when the message was handled (or refused), 0 for OTA frames. */
 #include "beetle_sample_transfer.inc"
+/* Firmware Hub/stock OTA must have priority over an unfinished USB project
+ * upload/download. These transfers only own staging RAM until COMMIT.
+ * Cancelling them NEVER writes or erases a project slot. A partially uploaded
+ * V2 sample may leave unreferenced data pages, but its index is not committed.
+ * Caller has already paused sound, so do NOT call the normal sample abort
+ * helper (it would restart the codec just before the OTA handshake). */
+static void beetle_transfer_preempt_for_ota(void){
+ beetle_xfer_reset();
+#if defined(BEETLE_NATIVE_V2) && BEETLE_NATIVE_V2
+ if(beetle_sample_xfer_active){
+  beetle_v2_sample_upload_abort(beetle_sx_up());
+  beetle_sample_xfer_active=0u;
+  beetle_bd4_live_bind(beetle_v2_workspace(),sizeof(beetle_staged));
+ }
+#endif
+}
+
 static int beetle_transfer_handle(uint32_t d){
  const uint8_t cmd=ota_dec[2];
  if(cmd>=0x70u && cmd<=0x76u)return beetle_sample_transfer_handle(cmd,ota_dec+6u,d-7u);

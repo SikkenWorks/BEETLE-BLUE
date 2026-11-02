@@ -1,1 +1,1 @@
-BEETLE BLUE V1.1 native, audited application. Full flashable package: ../BEETLE-BLUE-V1.1.fwsc. Use tools/build_blue_v11_package.py with reference/packaging-base.fwsc to reproduce the wrapper. The toolchain is external.
+BEETLE BLUE V1.2 native, audited application. Full flashable package: ../BEETLE-BLUE-V1.2.fwsc. Use tools/build_blue_v12_package.py with reference/packaging-base.fwsc to reproduce the wrapper. The toolchain is external.

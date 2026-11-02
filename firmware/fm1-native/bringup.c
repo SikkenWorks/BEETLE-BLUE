@@ -2442,8 +2442,10 @@ void fm1_cstart(void){
 #if ETCH_NATIVE_OTA
   ota_service();
 #ifdef TRACK_FIRMWARE
-  if(beetle_transfer_active()){
-   /* Transfer owns the serializer workspace. Physical keys cannot race the upload/download. */
+  if(beetle_transfer_active() && !usb.ota_req){
+   /* Project transfers own serializer RAM, but an explicit firmware update
+    * (including stock V15 via Firmware Hub) takes precedence. The OTA branch
+    * below cancels the unfinished transfer after pausing the audio engine. */
    continue;
   }
 #endif
@@ -2451,7 +2453,13 @@ void fm1_cstart(void){
    usb.ota_req=0;
    {
     uint8_t resume=!muted&&!native_tripped;
-    native_pause();native_updating=1;fm1_irq_off();native_midi_drain(0);fm1_irq_enable_all();
+    native_pause();native_updating=1;
+#ifdef TRACK_FIRMWARE
+    /* OTA has precedence over an unfinished project/sample transfer. Both
+     * are staging transactions, and cancellation does not commit flash. */
+    beetle_transfer_preempt_for_ota();
+#endif
+    fm1_irq_off();native_midi_drain(0);fm1_irq_enable_all();
 #ifdef TRACK_FIRMWARE
     /* App-owned update screen, prior to handoff; protected mask-ROM/loader
      * owns the screen after this point and cannot be recolored safely. */

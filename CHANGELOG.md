@@ -1,3 +1,15 @@
+# CHANGELOG
+
+## V1.2 — Firmware Hub stock-return handling
+
+- Explicit firmware-update requests now take priority over incomplete project transfers; staged project and sample uploads are safely aborted before OTA starts.
+- Official M-VAVE stock V15 acceptance remains limited to its known image SHA-256 and original updater loader metadata. No generic foreign-loader bypass was introduced.
+- Increased the bounded OTA session budget for slower USB-MIDI hosts receiving the complete stock V15 image.
+- Kept firmware identity, protected bootheader, inherited OTA loader, storage layout, drum features and project schema unchanged.
+- Added offline tests and an optional byte-for-byte compatibility check with a user-provided original M-VAVE V15 firmware file; an on-device return-through-Hub test is still needed for this exact binary.
+
+---
+
 ## V1.1 — Stable release naming and package consistency (2026-11-02)
 
 - Adopted **BEETLE BLUE V1.1** as the current release name across on-device HELP, firmware application, webtools, current documentation, packaging and checksums.

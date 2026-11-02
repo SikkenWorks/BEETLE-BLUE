@@ -447,7 +447,15 @@ static int etch_ota_available(uint8_t *b){
 #ifndef ETCH_TEST_RESTORE_ONLY
 #define ETCH_TEST_RESTORE_ONLY 0
 #endif
-/* Reference SHA-256 of the original M-VAVE V15 flash.bin (0x93000 B). */
+/* OFFICIAL STOCK V15 EXIT (used by The Firmware Hub "Back to official").
+ * The stock loader is accepted only with the known official 0x93000-byte
+ * image SHA-256 below AND its versioned official OTA length/header CRCs.
+ * Never make this a generic same-chip or identity-only bypass: a foreign
+ * loader can overwrite the 0x0000..0x3fff SPL/bootstrap sector. Stock V16
+ * is a separate vendor package and NOT authorized by this V15 allowlist.
+ * A trusted hub/host also pins the complete stock .fwsc SHA-256:
+ * db1642b2b6fa5c2cccb11ffd13878068bb28601678d3644049f99dc40e7edb8a
+ */
 static int etch_ota_stock(uint32_t off,uint8_t *b){
  static const uint8_t want[32]={0xc1,0x06,0x8a,0x40,0x3c,0x04,0xa6,0x37,0x8a,0x62,0x6a,0xfb,0x66,0xcc,0x21,0x7f,0x72,0xd1,0x3f,0x10,0xaa,0x20,0x0e,0x98,0x3b,0x7a,0x98,0x17,0xcc,0x1d,0xac,0x03};
  struct etch_sha256 h;uint8_t digest[32];etch_sha256_init(&h);
@@ -571,7 +579,10 @@ static int ota_session(void)
     uint32_t i;
     int rc;
     ota_touched=0;
-    ota_deadline = ota_now_ms() + 300000u;          /* native CRC replay reads the full app; finite 5-minute session limit */
+    ota_deadline = ota_now_ms() + 900000u;          /* Official V15 needs a full 0x93000-byte preflight SHA replay.
+                                                       * Allow 15 minutes on slow USB-MIDI hosts; each 512-byte
+                                                       * request still has bounded three-attempt/5-second retries.
+                                                       * No writes start before the trusted package preflight. */
     rc = ota_stage();
     if (rc) {
         if(ota_unstage())rc=-17;

@@ -14,7 +14,7 @@
   <a href="https://sikkenworks.github.io/BEETLE-BLUE/BEETLE-BLUE-Manager.html">All-in-One Manager</a>
 </p>
 
-<p align="center"><sub>Current firmware: V1.1 · Tested on two M-VAVE FM1 units · <a href="CHANGELOG.md">Release history</a> · <a href="validation/">Validation reports</a></sub></p>
+<p align="center"><sub>Current firmware: V1.2 · Tested on two M-VAVE FM1 units · <a href="CHANGELOG.md">Release history</a> · <a href="validation/">Validation reports</a></sub></p>
 
 > **Hardware tested.** BEETLE BLUE has been extensively tested by its developer on two physical M-VAVE FM1 units. Before updating, back up projects, document global User Kit settings and confirm a recovery procedure. Never update while there is unsaved music in RAM.
 
@@ -104,6 +104,14 @@ When you stop during a performance, choose **CONTINUE CURRENT TRACK** or **START
 
 The Tracker and Perform show a four-level pixel battery-voltage indicator. Its voltage bands are based on **Felucca by Leo Kuroshita / Hügelton Instruments** (ADC thresholds 531/561/591); BLUE adds display filtering and an invalid-reading indication. This is **not** a calibrated percentage or an independently verified charge-current measurement. An enumerated USB connection does not prove that the battery is charging.
 
+## Switching firmware and returning to M-VAVE stock
+
+BEETLE BLUE identifies itself as `FM-1_2124` over USB MIDI. Its update service supports the FM1 update handshake, including The Firmware Hub's **Back to official V15** action. It can receive the official V15 update request while a stopped project upload or sample transfer is open: that unfinished transfer is cancelled so firmware switching can proceed. **Uncommitted transfer data is lost.** Save and back up all work before switching.
+
+**To return to stock through The Firmware Hub:** connect the FM1 over USB using Chrome/Edge, back up project and User Kit data, select **Back to official V15**, and leave USB/power connected until the device restarts and the Hub recognizes the stock firmware. The stock image must be M-VAVE's unmodified V15; firmware identity alone does not authorize rewriting the boot area. The firmware verifies both the official image fingerprint and its loader metadata before staging the loader. If the package is unrecognized, the update fails closed rather than blindly installing it.
+
+M-VAVE also publishes newer **V16** stock firmware, but The Firmware Hub's official-return button currently installs **V15**. V16 uses a different package and has **not** been approved by BEETLE BLUE's pinned V15-only stock loader check. Use M-VAVE's current official updater or a separately verified recovery path for V16. No firmware can guarantee an update will work after a broken USB cable, power loss or damaged flash. If normal Web MIDI updating fails, consult the Firmware Hub rescue instructions; **never repeatedly erase/format storage as an OTA workaround**.
+
 ## Projects, storage and backup
 
 BEETLE BLUE supports **12 project slots**. Project files use `BDR1 V33`; `.bdrum` backups are not interchangeable with original BEETLE `TRK1` projects. The optional `.beetlebank` library is separate from both project files and global User Kit presets.
@@ -118,7 +126,7 @@ Project slots and imported samples share finite flash storage. `WIPE ALL STORAGE
 | [`BEETLE-BLUE-Project-Manager.html`](BEETLE-BLUE-Project-Manager.html) | Project/sample backup and transfer |
 | [`BEETLE-BLUE-Manager.html`](BEETLE-BLUE-Manager.html) | All-in-One web interface |
 
-**Installation:** this source bundle contains the V1.1 HELP and the paired **V1.1 WebInstaller**. Before flashing, read [STATUS.md](STATUS.md), verify your backups, and confirm a tested independent recovery procedure. Firmware packaging and hash verification are software checks, not a guarantee of safe hardware recovery.
+**Installation:** this source bundle contains the V1.2 HELP and the paired **V1.2 WebInstaller**. Before flashing, read [STATUS.md](STATUS.md), verify your backups, and confirm a tested independent recovery procedure. Firmware packaging and hash verification are software checks, not a guarantee of safe hardware recovery.
 
 The USB audio interface can expose stereo or six-channel mono capture, and has been tested as part of BEETLE BLUE development on physical FM1 hardware. Specific USB configurations and recovery paths should still be checked on the target setup. Native LCD reference images under `UI-CAPTURES-NATIVE-1920/` are screenshots of the C display renderer, not photos of hardware.
 
