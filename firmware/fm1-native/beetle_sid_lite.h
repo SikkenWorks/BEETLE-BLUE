@@ -75,7 +75,7 @@ static inline struct beetle_sid_prepared beetle_sid_prepare(uint8_t chip,
  x.mix=mix;x.combine=combine;x.sync=sync;x.ring=ring;x.phase_lock=0u;x.threshold_a=(uint16_t)((uint32_t)width_a*4095u/100u);
  x.threshold_b=(uint16_t)((uint32_t)width_b*4095u/100u);
  x.is8580=(uint8_t)(chip==BEETLE_SID_8580||chip==BEETLE_SID_NOISE);
- /* V1.4.31: The experimental 6581 curve introduced in V1.4.30
+ /* V1.4.31: The development 6581 curve introduced in V1.4.30
   * drove the stock cutoff 96 to coefficient ~97 instead of ~37, making
   * 6581/DIRTY/BASS much too resonant/phasey on older saved patches.
   * Restore the stable, nonlinear 6581 mapping from V1.4.29. This is done

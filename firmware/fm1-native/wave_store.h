@@ -16,7 +16,7 @@
 #ifndef ETCH_P04_EXPANDED
 #define ETCH_P04_EXPANDED 0
 #endif
-/* Experimental non-destructive spare-area store. The FM1/Felucca map lists
+/* development non-destructive spare-area store. The FM1/Felucca map lists
  * 0xA1000..0xE0000 as Felucca user/sample storage. Claim ONLY after a full read-only blank
  * scan of both banks, never erase or migrate unknown records automatically.
  * The spare area is claimed only if every sector is erased AND no Felucca
@@ -89,7 +89,7 @@ int etch_store_initialize_project(const struct etch_store_io*,const struct etch_
 
 /* P05 project catalog: four independently addressed, capacity-bounded projects
  * inside one CRC-verified A/B flash snapshot (no new flash partitions).
- * The expanded flash map is still hardware-unverified. */
+ * The expanded flash map is still pending separate feature-level hardware verification. */
 void etch_store_project_select(uint8_t index);
 uint8_t etch_store_project_selected(void);
 /* Mark this explicit save as the new global waveform-library master. */

@@ -2,17 +2,17 @@
 """Build GPL native FM1 lab variants; no device access or release export."""
 import os,subprocess,sys
 import argparse
-ap=argparse.ArgumentParser();ap.add_argument("--storage",action="store_true",help="compile experimental persistent flash writes; lab only")
-ap.add_argument("--beetle-storage-lab",action="store_true",help="EXPERIMENTAL: BEETLE-only physical journal with explicit destructive takeover confirmation; NOT hardware validated")
-ap.add_argument("--updater",action="store_true",help="compile MIDI OTA staging/commit for isolated LAB validation only; never flash from this build without physical test")
+ap=argparse.ArgumentParser();ap.add_argument("--storage",action="store_true",help="compile legacy persistent flash writes; developer flag")
+ap.add_argument("--beetle-storage-lab",action="store_true",help="BEETLE-only physical journal with explicit destructive takeover confirmation")
+ap.add_argument("--updater",action="store_true",help="compile MIDI OTA staging/commit for updater-enabled builds; hardware verification is the release maintainer's responsibility")
 ap.add_argument("--pilot",action="store_true",help="V0.32 field diagnostic: OTA recovery available but persistent projects always locked")
 ap.add_argument("--hardware-test",action="store_true",help="read-only full-app diagnostics: no storage and NO updater writes; Stage 0 remains the minimal first-boot probe")
-ap.add_argument("--usb-audio",action="store_true",help="experimental class-compliant stereo USB capture at 44.1 kHz; no device test")
-ap.add_argument("--usb-audio-48k",action="store_true",help="EXPERIMENTAL: host-selectable 48 kHz FIR capture; implies --usb-audio")
-ap.add_argument("--multi-project",action="store_true",help="EXPERIMENTAL: four project slots in one A/B snapshot; capacity limited")
+ap.add_argument("--usb-audio",action="store_true",help="stereo USB capture at 44.1 kHz; verify target USB configuration")
+ap.add_argument("--usb-audio-48k",action="store_true",help="host-selectable 48 kHz FIR capture; implies --usb-audio")
+ap.add_argument("--multi-project",action="store_true",help="four project slots in one A/B snapshot; capacity limited")
 ap.add_argument("--extended-store",action="store_true",help="LAB ONLY: expanded A/B flash region; refuses foreign data; backup and recovery required")
-ap.add_argument("--beetle-v2",action="store_true",help="EXPERIMENTAL: migrated project+sample V2 volume, real NOR write path")
-ap.add_argument("--drum-edition",action="store_true",help="BEETLE BLUE V1.0 RC12: user-sample gain/drive/choke in retained BEETLE project/sample storage")
+ap.add_argument("--beetle-v2",action="store_true",help="migrated project+sample V2 volume, real NOR write path")
+ap.add_argument("--drum-edition",action="store_true",help="BEETLE BLUE V1.1: six drum lanes, per-pattern lane lengths and retained project storage")
 args=ap.parse_args()
 if args.pilot and (args.storage or args.extended_store or args.beetle_storage_lab or args.multi_project or args.hardware_test): ap.error("Pilot mode must never enable persistent flash or full read-only hardware-test mode")
 if args.pilot: args.updater=True
@@ -43,7 +43,7 @@ cc=tc/'pi32v2/bin/clang';ld=tc/'pi32v2/bin/ld'
 if not cc.exists() or not ld.exists():sys.exit('Set JIELI_TOOLCHAIN to the directory containing pi32v2 and common.')
 # V0.69: never accidentally drift away from the bundled Felucca HAL/boot
 # baseline. Intentional upstream divergences (USB and OTA) are documented;
-# their physical behaviour is not claimed to be verified.
+# feature-level measurements should be recorded separately from the developer hardware tests.
 subprocess.run([sys.executable,str(root/'tools/audit_felucca_core.py')],check=True)
 objs=[]
 sources=['bringup.c','track_core.c','track_name.c','track_mixer.c','track_song.c','track_chip.c','track_drum.c','beetle_drum_rom.c','beetle_blue_monolith_rom.c','beetle_drum6_kits.c','beetle_blue_kits.c','beetle_drum6.c','track_project_store.c','track_journal.c','beetle_flash_layout.c','audio_core.c','native_performance.c','native_seq_ui.c','native_pattern_bank.c','native_project_codec.c','native_wave_fx.c','native_fx.c','native_factory.c','wave_editor.c','wave_store.c','native_digest.c','native_panel_midi.c','native_performance_midi.c','crt0.S','hal/fm1_vec.S','hal/fm1_isr.S']
@@ -58,7 +58,7 @@ subprocess.run([sys.executable,str(root/'tools/fm1_elf_to_app.py'),str(elf),str(
 subprocess.run([sys.executable,str(root/'tools/fm1_app_validate.py'),str(out/'app.bin'),'--elf',str(elf),'--toolchain',str(tc),'--report',str(out/'app.bin.audit.json')],check=True)
 if read_only:
  subprocess.run([sys.executable,str(root/'tools/check_readonly_images.py'),'--elf',str(elf)],check=True,env={**os.environ,'JIELI_TOOLCHAIN':str(tc)})
-print('Compiled '+('BEETLE BLUE V1.0 RC12' if args.drum_edition else 'BEETLE V1.7.14'), 'OTA-LAB' if args.updater else 'READ-ONLY', '; BEETLE persistent storage experimental:',args.beetle_storage_lab,'; updater writes:',args.updater,'; hardware validation is performed by project maintainer separately.')
+print('Compiled '+('BEETLE BLUE V1.1' if args.drum_edition else 'BEETLE V1.7.14'), 'UPDATER-ENABLED' if args.updater else 'READ-ONLY', '; BEETLE persistent storage enabled:',args.beetle_storage_lab,'; updater writes:',args.updater,'; hardware validation is performed by project maintainer separately.')
 
 import json,hashlib
-(out/'native-build-options.json').write_text(json.dumps({'app_sha256':hashlib.sha256((out/'app.bin').read_bytes()).hexdigest(),'beetle_storage_experimental':args.beetle_storage_lab,'beetle_v2_migrated_volume_experimental':args.beetle_v2,'storage_writes':args.storage,'ota_writes':args.updater,'readonly_hardware_test':args.hardware_test,'flash_read_only':read_only,'version':'BEETLE-BLUE-V1.0.0-RC12' if args.drum_edition else 'BEETLE-V1.7.14','pilot_ota_enabled_no_project_writes':args.pilot, 'storage_requires_destructive_user_consent':args.beetle_storage_lab,'overwrites_prior_ETCH_Felucca_user_storage':args.beetle_storage_lab,'hardware_verified':None,'intended_use':'Pilot OTA test - no project storage writes. Hardware test status: maintainer release process.' if args.pilot else ('EXPERIMENTAL BEETLE-only A/B flash writes gated by 5s physical confirmation' if args.beetle_storage_lab else 'OTA lab; BEETLE project flash writes locked'),'usb_audio_44100':args.usb_audio,'usb_audio_48000_experimental':args.usb_audio_48k,'extended_store_experimental':args.extended_store,'multi_project_experimental':args.multi_project,'product':'FM-1_2124','brand':'BEETLE','legacy_project_format':'TRACK-compatible'},indent=2)+'\n')
+(out/'native-build-options.json').write_text(json.dumps({'app_sha256':hashlib.sha256((out/'app.bin').read_bytes()).hexdigest(),'beetle_storage_enabled':args.beetle_storage_lab,'beetle_v2_migrated_volume_enabled':args.beetle_v2,'storage_writes':args.storage,'ota_writes':args.updater,'readonly_hardware_test':args.hardware_test,'flash_read_only':read_only,'version':'BEETLE-BLUE-V1.1' if args.drum_edition else 'BEETLE-V1.7.14','pilot_ota_enabled_no_project_writes':args.pilot, 'storage_requires_destructive_user_consent':args.beetle_storage_lab,'overwrites_prior_ETCH_Felucca_user_storage':args.beetle_storage_lab,'hardware_verified':None,'intended_use':'Pilot OTA test - no project storage writes. Hardware test status: maintainer release process.' if args.pilot else ('BEETLE-only A/B flash writes gated by 5s physical confirmation' if args.beetle_storage_lab else 'OTA lab; BEETLE project flash writes locked'),'usb_audio_44100':args.usb_audio,'usb_audio_48000_enabled':args.usb_audio_48k,'extended_store_enabled':args.extended_store,'multi_project_enabled':args.multi_project,'product':'FM-1_2124','brand':'BEETLE','legacy_project_format':'TRACK-compatible'},indent=2)+'\n')

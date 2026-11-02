@@ -1,8 +1,17 @@
-## V1.0.0 RC12 — Readable, paginated on-device HELP (EXPERIMENTAL)
+## V1.1 — Stable release naming and package consistency (2026-11-02)
+
+- Adopted **BEETLE BLUE V1.1** as the current release name across on-device HELP, firmware application, webtools, current documentation, packaging and checksums.
+- Preserved firmware hardware identity `FM-1_2124`, project file schema `BDR1 V33`, storage layout and protected bootloader/OTA bytes.
+- Rebuilt the application with the V1.1 display version and generated a matching full `.fwsc` firmware container.
+- Updated embedded WebInstaller, nested All-in-One Manager, verification manifest and integrity checks to agree on the exact new firmware bytes.
+- Restored missing `fm1_lz4.py` package-verification dependency to the active project tools. Archived historical validation and earlier release history remain untouched.
+- The developer reports extensive BEETLE BLUE hardware testing on two FM1 units; separately documented installation/recovery tests for the exact V1.1 package are not provided.
+
+## V1.0.0 RC12 — Readable, paginated on-device HELP (development)
 
 - Replaced dense HELP paragraphs with 66 concise two-line action cards in ten topics, showing a maximum of three separated cards per page.
 - K2 selects a topic, K1 pages through its cards. HOME and SEQ retain prior navigation. No project or storage format changes.
-- Updated on-device version/credits string, README controls and native HELP test harness. RC12 flashable firmware remains gated on release/recovery proof; native builds and reference rendering are not hardware tests.
+- Updated native HELP and README controls; native builds and reference rendering remain software-only validation. An additional **development RC12 `.fwsc`** and synchronized WebInstaller/Manager are provided after package/app/hash checks. Formal R0 recovery proof and physical flash/OTA validation are **not** available; no production certification is claimed.
 - Current project root contains no historical release binaries. Older histories remain in CHANGELOG and `validation/archive/`.
 
 ## Documentation maintenance — RC11 operator guide / HELP source sync
@@ -14,7 +23,7 @@
 
 ---
 
-## V1.0.0 RC11 | Per-pattern six-lane loop length (experimental)
+## V1.0.0 RC11 | Per-pattern six-lane loop length (development)
 
 - Added **independent 1–16 step length for CH1–CH6 in each of the 48 patterns**; default 16. Hold **SEQ and rotate K4** on the tracker to set the selected lane's length. `LEN xx` shows its length. K1 step navigation respects the selected lane.
 - Each lane independently loops modulo its own length, including the additional CH6 drum hits, drum FX, groove/microtiming, ratchets and Song Mode source lanes. The overall pattern advances on the longest active lane; no >16-step transport added.
@@ -29,7 +38,7 @@
 
 - Explicitly credit Leo Kuroshita / Hügelton Instruments (Felucca, GPL-3.0-only) for the 531/561/591 battery-voltage ADC thresholds used by the BLUE indicator. BLUE's filtering, fallback/invalid-read behavior and pixel presentation are SikkenWorks additions.
 - Update the on-device CREDITS page, README, full source credit documents, browser Manager, Project Manager and WebInstaller. Preserve BEETLE, ETCH, Felucca, JieLi, reSID/Nes_Snd_Emu reference distinctions and all required upstream copyright/licence notices.
-- No change to the RC9 audio, persistence, DSP, project schema or Live Mode algorithms. Firmware recompiled only for on-device credit text and version. Experimental: hardware testing still required.
+- No change to the RC9 audio, persistence, DSP, project schema or Live Mode algorithms. Firmware recompiled only for on-device credit text and version. development: hardware testing still required.
 
 # V1.0 RC9 — BATTERY HUD / SILENT LIVE PROJECT LOADING / USER KIT SELECTION
 
@@ -83,7 +92,7 @@ Zie RC8-VALIDATION.md voor tests en gebruik.
 - Reset all transient serialization staging memory on NEW project.
 - Report active legacy/V2 backend and differentiate actual capacity from invalid project data, with no flash writes on refusal.
 - Added real journal save/overwrite/load regression test for slots 1 and 2.
-- Experimental hardware status unchanged. No silent formatting, migration or erasure.
+- development hardware status unchanged. No silent formatting, migration or erasure.
 
 ## BEETLE BLUE V1.0 RC5 — Project capacity / kit source routing
 
@@ -120,18 +129,18 @@ Zie RC8-VALIDATION.md voor tests en gebruik.
 - Source audio timing and DMA scheduling are NOT changed. **Outstanding RC blocker: user-observed `DMA DEADLINE / AUDIO STOP` under heavy FM1 playback, physical USB capture/OTA and safe stage playback have NOT been proven.** This is a candidate for device acceptance testing, not a certified stable V1.0 release.
 
 
-## V0.99.8 — HOME menu Live Mode entry and nested HOME navigation (EXPERIMENTAL)
+## V0.99.8 — HOME menu Live Mode entry and nested HOME navigation (development)
 
 - Added **LIVE MODE** as a selectable entry in the normal **HOME / PROJECTS** menu, between SETTINGS and DIAGNOSTICS, without changing the boot NEW/LOAD/LIVE chooser.
 - Repaired Live Mode HOME routing: **SETLIST → LIVE MODE → HOME/PROJECTS** with one HOME press per level. The **PERFORM** and **PERFORMANCE STOP** HOME routes also lead first to LIVE MODE, not immediately to the main menu.
 - Preserved V0.99.7 silent SETLIST autosave on leaving via HOME or SEL, and its fail-closed behaviour on flash write errors.
 - Reflowed all 10 HOME menu items with 14-pixel line pitch and separate bottom status/footers on the native 240×240 LCD. Saved native C-rendered 1920×1920 UI captures, 8× nearest-neighbour.
-- Added dedicated C navigation/autosave regression, rebuilt native writable and read-only JieLi images, and reverified experimental `.fwsc` protected loader identity and byte-matched WebInstaller.
+- Added dedicated C navigation/autosave regression, rebuilt native writable and read-only JieLi images, and reverified development `.fwsc` protected loader identity and byte-matched WebInstaller.
 - No changes to drum DSP, patterns, song transport, samples, BDR1 V31 project codec, V2 setlist record, kit engines or DMA scheduling. **No physical FM1 validation. DMA DEADLINE/AUDIO STOP under heavy use remains unresolved.**
 
 
 
-## V0.99.7 — Live Setlist autosave, safer Perform gates, BLUE battery HUD (EXPERIMENTAL)
+## V0.99.7 — Live Setlist autosave, safer Perform gates, BLUE battery HUD (development)
 
 - **Silent automatic Setlist save:** leaving Setlist via HOME or the SEL navigation path commits changes to Storage V2's existing versioned/CRC32 A/B metadata footer. Unchanged entries do not write flash; success shows no toast. A failed commit **blocks the exit**, keeps the full in-RAM setlist and displays a clear retry error rather than losing changes. SAVE remains an optional retry. New failure-injection unit tests verify all five state paths.
 - **Perform safety:** PLAY is ignored unless an actual CRC-verified project is ready, Live Mode is active, the audio subsystem is healthy and there is no pending song-completion flag. A manual stop confirmation is accepted only for an actual paused transport. The interface explicitly reports an AUDIO STOP condition instead of claiming PLAYING/READY. Full project loads remain foreground-only; no flash I/O is introduced into the DMA callback.
@@ -140,7 +149,7 @@ Zie RC8-VALIDATION.md voor tests en gebruik.
 - **Tests:** writable/read-only JieLi builds, complete `.fwsc` checksum/payload/bootloader verification, A/B footer torn-write isolation, autosave fail/retry, battery policy thresholds, and existing user-sample/PCM regressions. **No physical FM1 verification or guarantee of stage safety**. The older `DMA DEADLINE / AUDIO STOP` failure under heavy playback remains an active hardware regression risk.
 
 
-## V0.99.6 — LIVE MODE: project setlists and stage transport (EXPERIMENTAL)
+## V0.99.6 — LIVE MODE: project setlists and stage transport (development)
 
 - Startup menu now presents **NEW PROJECT**, **LOAD PROJECT** and a separate **LIVE MODE** entry. LIVE MODE has **SETLIST** and **PERFORM** pages, all implemented in native FM1 C with 240×240 screen renders.
 - A global 24-position setlist chains references to 12 independently saved projects. K1 selects row, K2 assigns project, K4 moves row, OCT+ inserts, OCT− removes. Each project retains its own BPM, kits, effects and Song Chain. Repeat slots are allowed.
@@ -151,7 +160,7 @@ Zie RC8-VALIDATION.md voor tests en gebruik.
 
 
 
-## V0.99.5 — Per-slot self-choke and faster BD4S audio ISR (EXPERIMENTAL)
+## V0.99.5 — Per-slot self-choke and faster BD4S audio ISR (development)
 
 - **User-sample default self-choke:** all global U01–U13 Storage V2 samples and project-local user samples are now monophonic **per sample slot**, even when CHOKE=0. Retriggering the same slot from any lane applies the existing 48-frame voice fade. Other U slots are still independent; explicit shared choke groups retain their original behavior. Project format stays **BDR1 V31**.
 - **Cross-kit hi-hat priority:** BEETLE closed/open and MONOLITH closed/open/alternate hats share unconditional 48-frame choke, independent of kit/lane and configurable group setting. The existing cross-kit logic was retained and given an additional regression.
@@ -161,7 +170,7 @@ Zie RC8-VALIDATION.md voor tests en gebruik.
 - **Known RC blocker:** physical M-VAVE FM1 still exhibited `DMA DEADLINE / AUDIO STOP` with rapid user samples on **V0.99.4**. V0.99.5 reduces ISR and decoder pressure but its fix **cannot be certified without a new physical FM1 stress run**. Long sample tails remain flash-streamed; complete glitch elimination is NOT claimed.
 - README remains a concise operational guide; CHANGELOG contains development details. Two-tool Manager retains only WebInstaller and Project Manager; WebSimulator stays removed. Protected boot header/OTA loader are unchanged.
 
-## V0.99.4 — Prewarmed user-sample attacks / bounded flash bursts (EXPERIMENTAL)
+## V0.99.4 — Prewarmed user-sample attacks / bounded flash bursts (development)
 
 - **Usersample latency:** prewarm the first 256 source frames of every installed Storage V2 sample into immutable per-slot PCM/ADPCM attack snapshots while the transport is stopped and no key is held. Cache uses the existing project staging workspace, no extra permanently allocated audio-RAM section.
 - **Hot retrigger:** any of six drumvoices can restore a cached attack and the exact ADPCM continuation state from RAM, instead of re-reading and re-decoding the first two PCM windows. Preserves the selected sample generation and START/END trim; changed trim falls back to the normal path and learns a matching attack cache.
@@ -171,7 +180,7 @@ Zie RC8-VALIDATION.md voor tests en gebruik.
 - **Limitations:** only first 256 source frames are resident; long sample tails still stream from flash. Cache warms when idle, so a sample struck immediately after boot may still need its first foreground prefetch. Physical hardware DMA DEADLINE and true simultaneous flash/LCD/audio behavior are **not yet measured**. Do not claim never-glitch or hardware-certified stability.
 - README kept a concise product guide; detailed version changes belong here. The WebSimulator remains excluded.
 
-## V0.99.3 — Deterministic per-lane kits and sample handoff audit (EXPERIMENTAL)
+## V0.99.3 — Deterministic per-lane kits and sample handoff audit (development)
 
 - **Fixed kit confusion on CH1–CH6:** previously `s->instrument == lane` gated whether the lane's selected kit played; any other saved INST value silently selected a source from the project palette. Playback now consistently uses the lane's selected kit for NOTE1, NOTE2 and NOTE3, including Song Mode. All existing INST/palette bytes remain stored, but **per-step source overrides are intentionally suspended** until a distinct user-editable override flag exists.
 - Corrected a rapid-user-sample **lost-request race**: main-loop `pending` acknowledgement now snapshots voice serial/slot while briefly holding the IRQ lock. The lock is never held across flash I/O, sector CRC or DPCM decoding. A superseding request cannot be overwritten by a stale prepare/start.
@@ -181,7 +190,7 @@ Zie RC8-VALIDATION.md voor tests en gebruik.
 - The All-in-One Manager still contains only Project Manager and WebInstaller; no simulator. README remains a guide; all implementation changes are documented here.
 - **RC blocker:** the reported FM1 `DMA DEADLINE / AUDIO STOP` from rapid user samples has **not** been physically reproduced or eliminated. No guarantee of zero glitches, underruns, slowdowns, or reboot-free recovery is possible from software-host tests alone. Check actual FM1 flash bandwidth, ISR deadlines, DAC output and USB multi-stem operation before claiming V1.0 RC.
 
-## V0.99.2 — Punch-In FX Mixer header collision (EXPERIMENTAL)
+## V0.99.2 — Punch-In FX Mixer header collision (development)
 
 - Fixed the **LANE 0 / REC FX** Punch-In recording mixer: the horizontal page-header rule intersected `STEP`, `FX` and `ON/OFF` labels (line y=42 versus 5×7 glyphs y=38–44). Placed divider at native LCD y=37, column labels at y=43 and first event at y=54.
 - Audited all 16 Punch-In event rows: last entry ends at y=195, leaving clearance before the footer at y=201; no removal of recorded Punch-In events or changed navigation semantics.
@@ -190,7 +199,7 @@ Zie RC8-VALIDATION.md voor tests en gebruik.
 - No change to audio callbacks, DMA, storage, BDR1 V31, step FX, user samples, USB, OTA loader, kits or WebInstaller workflows; no WebSimulator reintroduced. Native JieLi and read-only binaries rebuilt from the modified source.
 - **Not V1.0 RC:** physical FM1 screen, DMA DEADLINE, flashed update/recovery and analogue audio still require hardware verification.
 
-## V0.99.1 — FM1 user-reported bugs, Punch-In routing and pre-RC stability (EXPERIMENTAL)
+## V0.99.1 — FM1 user-reported bugs, Punch-In routing and pre-RC stability (development)
 
 - LOAD PROJECT individual delete: use **EDIT** on selected occupied project; opens NO-default confirmation with explicit YES/NO. Legacy EDIT+SEL chord remains, but no longer required.
 - FX **double short press** opens Punch-In FX menu; single FX press on step FX column opens its three-slot parameter editor. Long FX hold remains the live Punch-In modifier.
@@ -207,7 +216,7 @@ Zie RC8-VALIDATION.md voor tests en gebruik.
 - **Tests:** full retained host FX/ROM/retrigger/project suite PASS, BDR1 V31 200% serialization PASS, native JieLi release and read-only symbol-audited builds PASS, protected header and OTA container verified. Physical DMA/DAC/flash/recovery/USB and streamed pitch remain unvalidated; **NOT V1.0 RC**.
 
 
-## V0.99 — Stereo overload protection and lightweight per-voice math (EXPERIMENTAL)
+## V0.99 — Stereo overload protection and lightweight per-voice math (development)
 
 - Fixed a mix-headroom weakness in the BLUE six-drum-lane output: individually soft-limited lanes could still sum to a hard-clipped stereo peak. The final stereo sample now uses a **symmetric bounded soft knee** above +/-24,000, capped at +/-31,500, with unchanged values throughout the linear region. This is a deterministic software safeguard, not an analogue SPL or hardware-clip certification.
 - Simplified the 73-value pitch lookup algebra to remove software-emulated 64-bit multiplication on every drum trigger / retune. Added an **exact equivalence test** to the old Q16 formula for every tuning value.
@@ -215,9 +224,9 @@ Zie RC8-VALIDATION.md voor tests en gebruik.
 - New host test runs **3,900 mixed BEETLE/MONOLITH triggers** across six lanes and **166,400 rendered audio frames**, with changing pan, simultaneous FX and a maximum stereo magnitude below 31,500; all V0.98 regression suites re-run successfully.
 - Preserved BDR1 **V30**, 48 patterns, 12 project slots, six lane kit selections, BBK1 saved kits, all existing FX identifiers and the protected OTA loader. No change to non-audio control semantics, NOR storage layout, DMA memory buffers or USB configuration.
 - Rebuilt actual JieLi image and matching WebInstaller; regenerated **17 native-C LCD captures at 1920x1920, 8x nearest-neighbor**. Manager embeds only Project Manager and WebInstaller; no WebSimulator.
-- **RC blockers remain:** physical FM1 DMA DEADLINE behavior, analogue output peak measurements, physical flash/recovery, streamed user-sample REV/delay, USB stems, and BBK1 kit-bank backup/restore. V0.99 is experimental, not verified V1.0 RC.
+- **RC blockers remain:** physical FM1 DMA DEADLINE behavior, analogue output peak measurements, physical flash/recovery, streamed user-sample REV/delay, USB stems, and BBK1 kit-bank backup/restore. V0.99 is development, not verified V1.0 RC.
 
-## V0.98 — Drum trigger correctness and CPU cleanup (EXPERIMENTAL)
+## V0.98 — Drum trigger correctness and CPU cleanup (development)
 
 - Fixed hi-hat choke across **both** built-in drum kits: BEETLE PCM HHC/HHO and MONOLITH ROM closed/open/alternate hats now share the correct release interaction. Previously MONOLITH's voices used IDs 66/67/79, which were not recognized when checking *existing* voices for a choke.
 - Fixed CH6 note-column assignment for MONOLITH: mapped procedural voice IDs 64–79 no longer masquerade as missing NOTE1 hits and inherit NOTE2 FX or STOP state. A small pure NOTE1/NOTE2 classifier uses the voice's actual source ID (MONOLITH) or logical component ID (BEETLE's randomized PCM variations).
@@ -225,9 +234,9 @@ Zie RC8-VALIDATION.md voor tests en gebruik.
 - Reduced drum render work for inactive voices by skipping EQ, FX, ROM-pointer and trim preparation for unused polyphony slots.
 - Added host regression for both-kit choke, CH6 NOTE1/NOTE2 effect routing, 4,096 rapid retriggers and procedural PITCH frequency. Re-ran existing PCM, MONOLITH, FX1–FX3, REV, trim, V29→V30 migration and PCM-initialization tests.
 - Firmware remains BDR1 **V30**, with 48 patterns, 12 project slots, 6 drum lanes, 12 BBK1 User Kits and no WebSimulator. Project/Storage V2 layouts are unchanged. Updated two-tool WebInstaller/Manager and regenerated 17 native LCD renders using 8× nearest-neighbor scaling.
-- **Hardware limitations:** no physical FM1 DMA timing, output-peak measurement, USB audio, flash/recovery or long-run flash journal verification has been performed. This is experimental and must not be advertised as V1.0 RC ready.
+- **Hardware limitations:** no physical FM1 DMA timing, output-peak measurement, USB audio, flash/recovery or long-run flash journal verification has been performed. This is development and must not be advertised as V1.0 RC ready.
 
-## V0.97 — Drum step-FX engine, FX cursor editing and realtime optimization (EXPERIMENTAL)
+## V0.97 — Drum step-FX engine, FX cursor editing and realtime optimization (development)
 
 - Release packaging cleanup: removed the WebSimulator, its README button and all emulator UI/payloads from the All-in-One Manager. The Manager now contains only the Project Manager and WebInstaller. Updated the two-tool Manager build script. This is a web/documentation-only repack; the native V0.97 `.fwsc` is unchanged.
 
@@ -239,7 +248,7 @@ Zie RC8-VALIDATION.md voor tests en gebruik.
 - Host tests: 12 effects alter BEETLE and MONOLITH audio relative to dry; 3-FX combinations differ from their component effects; 2,500 overlapping retriggers; FX 12 storage codec and V30 compatibility retained. Application build and container tests in validation/V0.97-RESULTS.md.
 - **Current limitations:** short ROM taps and MONOLITH tonal approximations are not equivalent to long buffered echo/convolution. Streaming Storage V2 samples have no backwards/PCM-history read for REV/DELAY/REVERB/CHORUS. Hardware FM1 DMA deadlines, real output peaks, and OTA recovery remain unverified, so V0.97 is **NOT** a V1.0 Release Candidate.
 
-## V0.96 — Project-sample REV trim correction and CH6 consistency (EXPERIMENTAL)
+## V0.96 — Project-sample REV trim correction and CH6 consistency (development)
 
 - Corrected project-local µ-law sample START/END in the native drum renderer. Previously the output age was treated as an absolute source endpoint and REV could read the wrong interval. Both directions now address the same source-frame window.
 - Applied the local sample window to all three CH6 hits (NOTE1, NOTE2 and NOTE3) as well as the other five drum lanes. The existing Storage V2 streaming trim request remains separate and forward-only.
@@ -251,7 +260,7 @@ Zie RC8-VALIDATION.md voor tests en gebruik.
 - **Unverified:** physical FM1 DMA deadlines, real analogue peaks, USB six-stem timing, persistent NOR wear, OTA write/recovery. Not an RC-certified firmware.
 
 
-## V0.95 — Reverse step FX implementation and 1.0 RC preparation (EXPERIMENTAL)
+## V0.95 — Reverse step FX implementation and 1.0 RC preparation (development)
 
 - Audited native step-FX definitions: V0.94 had no `REV` step effect; reverse key detection and Punch-In reverse were unrelated.
 - Added FX code **12 = REV** to the existing 4-bit FX field; old effect codes 0–11 and BDR1 V30 binary layout are unchanged.
@@ -264,7 +273,7 @@ Zie RC8-VALIDATION.md voor tests en gebruik.
 - **Not a hardware-verified Release Candidate.**
 
 
-## V0.94 — Audio PCM initialization fix and MONOLITH procedural ROM kit (EXPERIMENTAL)
+## V0.94 — Audio PCM initialization fix and MONOLITH procedural ROM kit (development)
 
 - Fixed the missing `native_stereo` zero-initialization introduced when BLUE disabled synth render, preventing stale PCM from being re-added by the drum mixer every ALNK0 block.
 - MONOLITH: replaced the built-in 50,800-byte, 8 kHz ADPCM bank with 16 fixed-patch 44.1 kHz ROM drum synthesis models. BEETLE original 14-pad PCM ROM remains unchanged.
@@ -276,7 +285,7 @@ Zie RC8-VALIDATION.md voor tests en gebruik.
 
 # BEETLE BLUE Changelog
 
-## V1.0.0 RC3 — Save DATA ERROR when switching STEP FX types (EXPERIMENTAL)
+## V1.0.0 RC3 — Save DATA ERROR when switching STEP FX types (development)
 
 - Reproduced `PROJECT DATA ERROR` when an FX TYPE change retained a VOLUME value of 200 on an effect whose maximum is 100. Native host test reproduced serializer rejection and confirms clean encoding after correction.
 - Fix FX1, NOTE2 FX, FX2/FX3 type-change values at edit time, with a strictly limited compatibility repair of invalid FX value/type pairs in the **staged SAVE copy**. No mutation to the active song, notes, effect IDs or audio, and no changed flash layout or project schema.

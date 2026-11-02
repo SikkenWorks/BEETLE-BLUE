@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only
- * BEETLE BLUE RC12 HELP: three readable cards per page on the FM1's 240x240 LCD.
+ * BEETLE BLUE V1.1 HELP: three readable cards per page on the FM1's 240x240 LCD.
  * K2 changes topic; K1 changes page. Display-only, never touches project data.
  */
 #ifndef BEETLE_HELP_H
@@ -82,8 +82,8 @@ static const struct beetle_help_card beetle_help_cards[] = {
  {"RECOVER AUDIO","HOLD HOME + PLAY"},
  {"BEFORE UPDATING","BACK UP PROJECTS AND SAMPLES"},
  {"FLASH OPERATIONS","DO NOT INTERRUPT WRITES"},
- {"USB AUDIO","EXPERIMENTAL 44.1KHZ/16BIT"},
- {"VERSION","BEETLE BLUE V1.0 RC12"},
+ {"USB AUDIO","44.1KHZ / 16 BIT"},
+ {"VERSION","BEETLE BLUE V1.1"},
  {"CREDITS","HOME > CREDITS FOR AUTHORS"},
 };
 static const struct beetle_help_topic beetle_help_topics[] = {

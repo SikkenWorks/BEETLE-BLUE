@@ -36,7 +36,7 @@ These are specific provenance acknowledgements, not assertions that all technica
 
 `LICENSES/FELUCCA-LICENSING.txt` documents upstream code and dependency provenance, including DaisySP (Electrosmith / Emilie Gillet), Rings (Emilie Gillet), msfa/Dexed (Google / Pascal Gauthier), CrispyZebra, Fukiai, Inter Tight, DotGothic16, Versilian Studios VSCO-2, klattsch and X0X. The specific MIT, Apache-2.0 and OFL notices remain under `firmware/fm1-native/LICENSES/` where included. These notices concern lineage and applicable files, **not** a claim that every listed third-party library, font or audio asset ships or runs in BLUE.
 
-The FM1 WebInstaller's MIDI/OTA transport derives from Felucca's open-source updater. Preserve the GPL-3.0-only attribution in its script, plus the original copyright in `firmware/fm1-native/lcd.c` and other inherited source files. The experimental firmware package also retains protected loader/SDK data from the established ETCH/Felucca packaging lineage; changing the app's CREDITS screen does not transfer ownership of those components.
+The FM1 WebInstaller's MIDI/OTA transport derives from Felucca's open-source updater. Preserve the GPL-3.0-only attribution in its script, plus the original copyright in `firmware/fm1-native/lcd.c` and other inherited source files. The development firmware package also retains protected loader/SDK data from the established ETCH/Felucca packaging lineage; changing the app's CREDITS screen does not transfer ownership of those components.
 
 ## Licence, redistribution and limitations
 

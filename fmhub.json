@@ -1,7 +1,9 @@
 {
-  "what": "BEETLE BLUE isn't made for the quick and easy. It's built for those who prefer the tracker interface and want to see what does what and what goes where. Complete control over your drum tracks. Ready to use live with Live Mode.",
-  "author": "Joppe Sikken (SikkenWorks)",
-  "kinds": ["tracker", "drums", "groove"],
-  "editor": "https://sikkenworks.github.io/BEETLE-BLUE/BEETLE-BLUE-Project-Manager.html",
-  "image": "BEETLE-BLUE.png"
+  "what": "BEETLE BLUE turns your M-VAVE FM1 into a six-lane drum tracker. Build beats with BEETLE and MONOLITH kits, design custom drums, arrange songs, and perform setlists with Live Mode and hands-on effects.",
+  "kinds": [
+    "tracker",
+    "drums",
+    "groove"
+  ],
+  "editor": "https://sikkenworks.github.io/BEETLE-BLUE/BEETLE-BLUE-Project-Manager.html"
 }

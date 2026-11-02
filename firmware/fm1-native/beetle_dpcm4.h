@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-only
- * SikkenWorks BEETLE BD4S experimental 4-bit adaptive sample decoder.
+ * SikkenWorks BEETLE BD4S development 4-bit adaptive sample decoder.
  * Original design: NOT imported from IMA ADPCM or other firmware.
  * HOST/LAB ONLY. Do not read SPI NOR or call storage from audio IRQ.
  */

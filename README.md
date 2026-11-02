@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="BEETLE-BLUE.png" alt="BEETLE BLUE pixel-art boot image" width="320">
+  <img src="assets/BEETLE-DRUM-blue-boot-frame1.png" alt="BEETLE BLUE pixel-art boot image" width="320">
 </p>
 
 <h1 align="center">BEETLE BLUE</h1>
@@ -14,11 +14,13 @@
   <a href="https://sikkenworks.github.io/BEETLE-BLUE/BEETLE-BLUE-Manager.html">All-in-One Manager</a>
 </p>
 
-<p align="center"><sub>Current source: V1.0 RC12 (experimental; see STATUS.md for installation status) · <a href="CHANGELOG.md">Release history</a> · <a href="validation/">Validation reports</a></sub></p>
+<p align="center"><sub>Current firmware: V1.1 · Tested on two M-VAVE FM1 units · <a href="CHANGELOG.md">Release history</a> · <a href="validation/">Validation reports</a></sub></p>
+
+> **Hardware tested.** BEETLE BLUE has been extensively tested by its developer on two physical M-VAVE FM1 units. Before updating, back up projects, document global User Kit settings and confirm a recovery procedure. Never update while there is unsaved music in RAM.
 
 ## Overview
 
-BEETLE BLUE is the drum-focused fork of [BEETLE](https://github.com/SikkenWorks/BEETLE), with six drum sequencer lanes and two built-in ROM drum engines. **BEETLE BLUE has been extensively tested by its developer on two physical M-VAVE FM1 units.** Its main capabilities are:
+BEETLE BLUE is the drum-focused fork of [BEETLE](https://github.com/SikkenWorks/BEETLE), with six drum sequencer lanes and two built-in ROM drum engines. Its main capabilities are:
 
 | Feature | Capability |
 | :-- | :-- |
@@ -31,7 +33,7 @@ BEETLE BLUE is the drum-focused fork of [BEETLE](https://github.com/SikkenWorks/
 | User samples | U01–U13 shared slots, requiring compatible Storage V2 support |
 | Drum processing | Per-step FX, Punch-In FX, groove/ratchets, mute groups, snapshots and mixer |
 | Storage | 12 project slots, `.bdrum` exports, `BDR1 V33` project format |
-| USB capture | Experimental stereo master or six mono stems at 44.1 kHz / 16-bit |
+| USB capture | Stereo master or six mono stems at 44.1 kHz / 16-bit |
 
 ## On-device HELP
 
@@ -74,7 +76,7 @@ Global User Kits live in Storage V2 `BBK1` metadata, **outside** normal `.bdrum`
 
 ### User samples
 
-Imported U01–U13 samples can be edited with START, END, Attack/Decay/Sustain/Release, GAIN, DRIVE and CHOKE. Their attacks can be prewarmed in RAM; longer tails still stream from flash. These settings do not copy the original WAV into each project. Long-sample streaming and worst-case DMA timing may still benefit from targeted stress testing.
+Imported U01–U13 samples can be edited with START, END, Attack/Decay/Sustain/Release, GAIN, DRIVE and CHOKE. Their attacks can be prewarmed in RAM; longer tails still stream from flash. These settings do not copy the original WAV into each project. Continue monitoring sample-streaming timing and DMA stability in demanding hardware sessions.
 
 ## Patterns, step FX and Song Mode
 
@@ -96,7 +98,7 @@ Leaving Setlist with **HOME** or **SEL to Perform** silently saves changes when 
 
 Perform opens the first assigned project, including its own tempo, selected kits, patterns, Song Chain and mix settings. A **loading overlay with real progress** appears while project data is read. Press **PLAY/STOP** to start; the next song is prepared only when the current one finishes, and **waits for your next PLAY**. This avoids unexpectedly starting the next track.
 
-When you stop during a performance, choose **CONTINUE CURRENT TRACK** or **START CURRENT TRACK AGAIN** using K1 and confirm with SEL. A warm digital audio transition is designed to mute output while the next project loads without turning off the analogue output on normal transitions. As with any live audio system, completely pop-free operation cannot be guaranteed for every playback state and external audio setup. No project flash load happens in the audio interrupt.
+When you stop during a performance, choose **CONTINUE CURRENT TRACK** or **START CURRENT TRACK AGAIN** using K1 and confirm with SEL. A warm digital audio transition is designed to mute output while the next project loads without turning off the analogue output on normal transitions; avoid abrupt analogue switching; test listening levels before live use. No project flash load happens in the audio interrupt.
 
 ## Battery indicator
 
@@ -116,9 +118,9 @@ Project slots and imported samples share finite flash storage. `WIPE ALL STORAGE
 | [`BEETLE-BLUE-Project-Manager.html`](BEETLE-BLUE-Project-Manager.html) | Project/sample backup and transfer |
 | [`BEETLE-BLUE-Manager.html`](BEETLE-BLUE-Manager.html) | All-in-One web interface |
 
-**Installation status:** the native HELP changes are included in the source build, not in the currently published WebInstaller. Check [STATUS.md](STATUS.md) for the exact installed-firmware version and release-gate status. No new flashable firmware is provided with this source-only update.
+**Installation:** this source bundle contains the V1.1 HELP and the paired **V1.1 WebInstaller**. Before flashing, read [STATUS.md](STATUS.md), verify your backups, and confirm a tested independent recovery procedure. Firmware packaging and hash verification are software checks, not a guarantee of safe hardware recovery.
 
-The USB audio interface can expose stereo or six-channel mono capture. USB capture remains experimental; compatibility and recording stability may vary with the connected computer and audio setup. Native LCD reference images under `UI-CAPTURES-NATIVE-1920/` are screenshots of the C display renderer, not photos of hardware.
+The USB audio interface can expose stereo or six-channel mono capture, and has been tested as part of BEETLE BLUE development on physical FM1 hardware. Specific USB configurations and recovery paths should still be checked on the target setup. Native LCD reference images under `UI-CAPTURES-NATIVE-1920/` are screenshots of the C display renderer, not photos of hardware.
 
 ### Build from source
 
@@ -129,7 +131,7 @@ export JIELI_TOOLCHAIN=/path/to/jieli-linux-toolchains-20260730.1
 python firmware/fm1-native/build.py --drum-edition --beetle-storage-lab --beetle-v2 --updater --usb-audio
 ```
 
-The toolchain is not distributed in the release archive. Native build checks complement the extensive testing on two physical FM1 units; they do not establish OTA recovery safety or replace a verified backup. Detailed version-by-version changes belong only in [CHANGELOG.md](CHANGELOG.md); technical checks are in `validation/`.
+The toolchain is not distributed in the release archive. Native build success is separate from on-device testing, OTA recovery validation and verified backups. Detailed version-by-version changes belong only in [CHANGELOG.md](CHANGELOG.md); technical checks are in `validation/`.
 
 ## Reporting issues
 

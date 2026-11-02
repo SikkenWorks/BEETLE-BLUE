@@ -1330,7 +1330,7 @@ static uint32_t uac_packet(uint32_t *d)
     uint32_t n = 44u, r, fill, k, i;
 #if FELUCCA_UAC_48K
     if (uac.r48) {
-        n = 48u; /* legacy experimental 48k path, not shipped in V1.2 */
+        n = 48u; /* legacy development 48k path, not shipped in V1.2 */
     } else
 #endif
     {

@@ -1976,7 +1976,7 @@ static void screen_render(void){
    }
   }else if(native_system_tab==2){
    label("RECOVERY STATUS",10,91,0x07ff);
-   label("EXPERIMENTAL",10,119,0xfda0);
+   label("RECOVERY INFO",10,119,0xfda0);
    label("NO VERIFIED RESTORE",10,142,0xf800);
    label("NO FLASH FROM MENU",10,169,0xffff);
   }else if(native_system_tab==3){

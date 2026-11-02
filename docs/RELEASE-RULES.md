@@ -9,3 +9,5 @@ This file describes the project publishing rules; it is not part of the end-user
 5. Run `python3 tools/check_blue_release_hygiene.py` before each release. Fix failures rather than renaming them out of detection.
 6. Never claim that source edits changed an earlier `.fwsc`. Build, validate and package a new firmware using the release's actual recovery/packaging gates.
 7. Keep third-party licences, source attributions, and original required notices intact.
+
+8. A developer release package may be made from an existing, byte-verified, previously distributed reference package and a native audited APP only after explicit hardware-risk acknowledgement. It must not claim to satisfy the independent ETCH R0 recovery-proof gate or be certified for stage use. The formal `fm1_fwsc.py release-pack` remains gated. Store test manifests in `validation/` and never replace the stock recovery proof with fabricated evidence.
