@@ -39,13 +39,13 @@ assert '#define OTA_LDR_DCRC 0x5881u' in src
 assert '#define OTA_LDR_LEN 0x4DE1u' in src
 print('PASS: V15 pinned package policy, fail-closed loader check, OTA preemption, bounded transfer budget')
 
-fwfile=ROOT/'BEETLE-BLUE-V1.2.fwsc'
+fwfile=ROOT/'BEETLE-BLUE-V1.3.fwsc'
 if fwfile.exists():
  pkg, errs=fw.verify_fwsc(fwfile)
  assert not errs, errs
- assert pkg['product']=='FM-1_2124'
+ assert pkg['product']=='FM-1_2224'
  assert fwfile.stat().st_size==610086
- print('PASS: V1.2 complete firmware container and unchanged FM-1_2124 identity')
+ print('PASS: V1.3 complete firmware container and new FM-1_2224 identity')
 
 if len(sys.argv)>1:
  f=Path(sys.argv[1]);data=f.read_bytes()

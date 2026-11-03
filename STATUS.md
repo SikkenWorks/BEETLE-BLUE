@@ -1,15 +1,13 @@
-# BEETLE BLUE V1.2 — Release Status
+# BEETLE BLUE V1.3 — Release Status
 
-- **Firmware:** V1.2 complete FM1 `.fwsc` package, built from current source.
-- **Identity:** `FM-1_2124` on `AC791N`, unchanged from V1.1.
-- **Storage / format:** Storage V2 and `BDR1 V33` unchanged; no wipe or migration for this update.
-- **Official return path:** USB-MIDI OTA accepts **the verified M-VAVE stock V15 package** using its pinned flash SHA-256 and original loader metadata, as required by The Firmware Hub's **Back to official V15** workflow. A firmware request now preempts incomplete project or sample transfers, which previously could block it.
-- **Long transfers:** global session budget extended to 15 minutes; individual read retries remain bounded and aborts are supported.
-- **Stock V16:** not implicitly supported. Different stock versions must be validated separately rather than allowing arbitrary loaders.
-- **Hardware:** Developer reports extensive BEETLE BLUE testing on two M-VAVE FM1 devices. No independent log of the *exact V1.2 -> official V15 via Hub* transition is included.
-- **Package checks:** Native writable and read-only builds, app memory limit, firmware CRC/identity, bootheader/OTA preservation, and nested webtool integrity passed software tests.
-- **Safety:** No bootloader/OTA bytes changed; don't flash without a verified backup, adequate power and working rescue route.
-- **Docs:** README is only the current user guide. Version history belongs to CHANGELOG.
+- **Firmware:** V1.3 complete `.fwsc` with native on-device version and matching WebInstaller.
+- **Identity:** `FM-1_2224` / `AC791N`, unchanged from V1.2.
+- **Storage / project format:** Storage V2 and `BDR1 V33`, unchanged; no format or data migration.
+- **Official stock return:** existing OTA policy accepts the verified M-VAVE V15 package using its pinned SHA-256 and vendor loader metadata. USB OTA retains priority over unfinished project/sample transfers and a bounded 15-minute session. No permissive bypass for unverified firmware.
+- **Bootloader:** immutable OTA-loader and first 16 KiB flash boot bytes from V1.2 remain preserved.
+- **Hardware testing:** The developer reports extensive BEETLE BLUE testing on two physical FM1 units. A physical flash and stock V15 rollback of this exact V1.3 build is not independently recorded.
+- **Docs:** README is the current operating manual; version history remains in CHANGELOG.
+- **Release checks:** see `validation/V1.3-VALIDATION.md` and `FIRMWARE-MANIFEST.json`.
 
-**V1.2 firmware SHA-256:** `a70b43f9a3dc1a0ed70fcb04c61ef82ed807294e8156e170217a6a9fcd754a74`
-**V1.2 app SHA-256:** `bc7aa07ffd0598a4e259381b7cc6534fd5651e9559002bba7e7d090776bd598d`
+**V1.3 firmware SHA-256:** `c699bcf0685815d60692540d04033fad7732c7e4a001b646756cddd536a00102`  
+**V1.3 native app SHA-256:** `9a0c292d76644288778aef052d5ebf88d17d14de1eb7a853f0e418b32508d1f8`

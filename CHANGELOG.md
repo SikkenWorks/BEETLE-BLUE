@@ -1,5 +1,21 @@
 # CHANGELOG
 
+## V1.3 — Release version update (2026-11-03)
+
+- Updated the BEETLE BLUE release number to **V1.3** in the native FM1 application and HELP, the `.fwsc` container, web tools and current documentation.
+- Kept product identity **`FM-1_2224`**, project format **`BDR1 V33`**, Storage V2, audio, Live Mode, and the V1.2 OTA return-to-stock V15 safeguards unchanged.
+- Rebuilt writable and read-only firmware, synchronized embedded firmware/hashes and regenerated HELP screen captures; tests and packaging checks recorded separately in `validation/V1.3-VALIDATION.md`.
+- This is a version-only update. It does not claim that the exact new binary has been separately field-tested or that all stock transitions are universally guaranteed.
+
+---
+
+
+### V1.2 identity update (FM-1_2224)
+- Changed only the BEETLE BLUE device/package identity from FM-1_2124 to FM-1_2224 so The Firmware Hub can identify this release independently.
+- Preserved V1.2 stock-V15 OTA acceptance, USB OTA priority, firmware boot bytes, OTA loader, storage format BDR1 V33, and Live Mode behavior.
+- Updated source build script, firmware manifest, WebInstaller/Manager identity and SHA-256 checks; exact installation and stock-return tests remain a device-side validation step.
+
+
 ## V1.2 — Firmware Hub stock-return handling
 
 - Explicit firmware-update requests now take priority over incomplete project transfers; staged project and sample uploads are safely aborted before OTA starts.

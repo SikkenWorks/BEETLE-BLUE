@@ -1,11 +1,11 @@
 {
-  "firmware": "BEETLE BLUE V1.2",
-  "status": "V1.2 / DEVELOPER-TESTED ON TWO FM1 UNITS",
+  "firmware": "BEETLE BLUE V1.3",
+  "status": "V1.3 / DEVELOPER-TESTED ON TWO FM1 UNITS",
   "target": "M-VAVE FM1",
-  "product": "FM-1_2124",
-  "fwsc_sha256": "a70b43f9a3dc1a0ed70fcb04c61ef82ed807294e8156e170217a6a9fcd754a74",
+  "product": "FM-1_2224",
+  "fwsc_sha256": "c699bcf0685815d60692540d04033fad7732c7e4a001b646756cddd536a00102",
   "firmware_bytes": 610086,
-  "app_sha256": "bc7aa07ffd0598a4e259381b7cc6534fd5651e9559002bba7e7d090776bd598d",
+  "app_sha256": "9a0c292d76644288778aef052d5ebf88d17d14de1eb7a853f0e418b32508d1f8",
   "app_bytes": 538412,
   "app_headroom_bytes": 43152,
   "reference_sha256": "e0deb6ccb5f94d4542034432237013000ff1e07191d487a4541725d357efe976",
@@ -18,18 +18,32 @@
     "protected_boot_header_identical": true,
     "ota_byte_identical": true,
     "decrypted_app_matches": true,
-    "container_shape_matches_reference": true
+    "container_shape_matches_reference": true,
+    "v13_v12_app_one_version_byte_only": true,
+    "v12_ota_loader_byte_identical": true,
+    "v12_bootheader_byte_identical": true,
+    "stock_v15_policy_source_unchanged": true
   },
   "r0_recovery_proof_present": false,
   "developer_tested_on_two_fm1": true,
   "formal_release_pack_gate_bypassed": false,
   "warning": "Complete FWSC. The developer reports two-FM1 hardware testing; specific installation and recovery evidence for this exact build is not included.",
-  "installer_embedded_fwsc_sha256": "a70b43f9a3dc1a0ed70fcb04c61ef82ed807294e8156e170217a6a9fcd754a74",
+  "installer_embedded_fwsc_sha256": "c699bcf0685815d60692540d04033fad7732c7e4a001b646756cddd536a00102",
   "manager_nested_installer_matches": true,
   "official_stock_return_policy": "Only known M-VAVE V15 image SHA and exact vendor loader metadata accepted",
   "ota_update_preempts_project_transfer": true,
   "ota_update_aborts_pending_sample_transfer": true,
   "ota_global_deadline_ms": 900000,
   "stock_v15_file_byte_test": "not run: stock V15 package not provided",
-  "developer_hardware_testing": "Developer reports BEETLE BLUE tested extensively on two physical FM1s. No record of exact V1.2->stock V15 OTA here."
+  "developer_hardware_testing": "Developer reports BEETLE BLUE tested extensively on two physical FM1s. No record of exact V1.2->stock V15 OTA here.",
+  "identity_change_from": "FM-1_2124",
+  "identity_change_to": "FM-1_2224",
+  "note": "V1.3 version-only rebuild. The app has one byte changed (V1.2 to V1.3); original V1.2 OTA policy, bootheader, loader, Storage V2, and USB identity preserved.",
+  "notes": [
+    "V1.3 changes one compiled application byte for its displayed version only.",
+    "The official stock V15 accept/reject gate, 15 minute OTA session budget, and OTA preemption are unchanged.",
+    "Exact V1.3 flash and rollback on FM1 have not been independently recorded."
+  ],
+  "identity_carried_forward_from": "V1.2",
+  "hardware_proof_for_exact_v13_binary": "not independently available; developer tested earlier BEETLE BLUE releases on two physical FM1 units"
 }
