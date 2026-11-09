@@ -56,6 +56,9 @@ static inline void *fl_far(void *p) { void *volatile q = p; return q; }
 #define FL_RANGE_OK(off, n) (FL_STORE_OK(off, n) || FL_IN(off, n, FL_OTA_LO, FL_OTA_HI))
 #endif
 
+/* Shared app/loader whitelist: never write to unrecognized SPI NOR. */
+#include "fm1_flash_id.h"
+
 typedef struct { uint32_t sfc_con, spi_con; } fl_saved_t;
 
 RAMINL void fl_csync(void) { __asm__ volatile("csync" ::: "memory"); }
@@ -152,13 +155,23 @@ RAMINL int fl_wait_ready(uint32_t max_us, uint32_t *took_us)
 #endif
 /* ---- entry points: IRQs OFF, args/buffers in RAM ---- */
 
-static RAMFN uint32_t fl_jedec_ram(void)                 /* expect 0x856014 */
+/* Called with XIP already off, so this stays in RAM and must not
+ * call fl_enter()/fl_exit() recursively. */
+RAMINL uint32_t fl_read_jedec_spi(void)
+{
+    uint32_t id;
+    fl_cs(0); fl_tx(0x9Fu);
+    id = (uint32_t)fl_rx() << 16;
+    id |= (uint32_t)fl_rx() << 8;
+    id |= fl_rx();
+    fl_cs(1);
+    return id;
+}
+static RAMFN uint32_t fl_jedec_ram(void)
 {
     fl_saved_t s; uint32_t id;
     if (fl_enter(&s)) return 0;
-    fl_cs(0); fl_tx(0x9F);
-    id = (uint32_t)fl_rx() << 16; id |= (uint32_t)fl_rx() << 8; id |= fl_rx();
-    fl_cs(1);
+    id = fl_read_jedec_spi();
     fl_exit(&s);
     return id;
 }
@@ -179,6 +192,9 @@ static RAMFN int fl_erase4k_ram(uint32_t off, uint32_t *took_us)
     if (!FL_RANGE_OK(off, 0x1000u) || (off & 0xFFFu))
         return -1;
     if (fl_enter(&s)) return -2;
+    /* After XIP is disabled, confirm this is a supported 1 MiB NOR.
+     * Unknown IDs fail closed BEFORE Write Enable, erase or program. */
+    if (!FL_JEDEC_OK(fl_read_jedec_spi())) { fl_exit(&s); return -5; }
     fl_wren();
     if (!(fl_rdsr(0x05) & 2u)) rc = -3;           /* WEL did not set */
     else {
@@ -196,6 +212,9 @@ static RAMFN int fl_prog_ram(uint32_t off, const uint8_t *src, uint32_t n, uint3
     if (!FL_RANGE_OK(off, n) ||
         n == 0 || n > 256u || ((off & 0xFFu) + n) > 256u) return -1;    /* one page, no wrap */
     if (fl_enter(&s)) return -2;
+    /* After XIP is disabled, confirm this is a supported 1 MiB NOR.
+     * Unknown IDs fail closed BEFORE Write Enable, erase or program. */
+    if (!FL_JEDEC_OK(fl_read_jedec_spi())) { fl_exit(&s); return -5; }
     fl_wren();
     if (!(fl_rdsr(0x05) & 2u)) rc = -3;
     else {

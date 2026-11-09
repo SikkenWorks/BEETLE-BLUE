@@ -3282,7 +3282,7 @@ static void track_fm1_paint(void){
   track_pix_center("K1 CHOOSE   SEL OPEN",120u,209u,TRACK_PINK);
   track_pix_center(
 #if defined(BEETLE_DRUM_EDITION) && BEETLE_DRUM_EDITION
- "BEETLE BLUE V1.3",
+ "BEETLE BLUE V1.3.1",
 #else
  "BEETLE V1.7.14",
 #endif

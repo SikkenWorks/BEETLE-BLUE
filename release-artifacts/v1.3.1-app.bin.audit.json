@@ -1,20 +1,20 @@
 {
   "target": "M-VAVE FM-1 / JieLi AC791N-WL82 / pi32v2",
-  "app_bytes": 465296,
-  "app_sha256": "84d401d311ab33d656ed17279e4a93050964ef8ef3280dbb99cbba1e9da45243",
+  "app_bytes": 539444,
+  "app_sha256": "5521434cf9a7b40c09e9abee986bb12dc53197bef7815dc13ea34d2817a4e373",
   "app_slot_bytes": 581564,
-  "headroom_bytes": 116268,
+  "headroom_bytes": 42120,
   "expected_start": "0x2000120",
   "entry_stub_ok": true,
   "safe_ram": [
     "0x1c00000",
     "0x1c7f000"
   ],
-  "symbol_count": 1027,
+  "symbol_count": 1304,
   "sections": [
     {
       "name": ".text",
-      "size": 464100,
+      "size": 535440,
       "vma": 33554720,
       "lma": 33554720,
       "file_offset": 800,
@@ -22,31 +22,31 @@
     },
     {
       "name": ".ram_text",
-      "size": 1120,
+      "size": 3920,
       "vma": 29360128,
-      "lma": 34018820,
-      "file_offset": 465408,
+      "lma": 34090160,
+      "file_offset": 537088,
       "nobits": false
     },
     {
       "name": ".data",
-      "size": 76,
+      "size": 84,
       "vma": 29392896,
-      "lma": 34019940,
-      "file_offset": 467456,
+      "lma": 34094080,
+      "file_offset": 541696,
       "nobits": false
     },
     {
       "name": ".bss",
-      "size": 96868,
-      "vma": 29392976,
-      "lma": 29392976,
-      "file_offset": 467536,
+      "size": 98200,
+      "vma": 29392992,
+      "lma": 29392992,
+      "file_offset": 541792,
       "nobits": true
     },
     {
       "name": ".pool",
-      "size": 207744,
+      "size": 211904,
       "vma": 29491200,
       "lma": 29491200,
       "file_offset": 1280,
@@ -54,7 +54,7 @@
     },
     {
       "name": ".usb_audio_ram",
-      "size": 4544,
+      "size": 7708,
       "vma": 29384704,
       "lma": 29384704,
       "file_offset": 1024,
@@ -62,7 +62,7 @@
     },
     {
       "name": ".beetle_usb_stems_ram",
-      "size": 7564,
+      "size": 20416,
       "vma": 29364224,
       "lma": 29364224,
       "file_offset": 1024,
@@ -71,30 +71,30 @@
     {
       "name": ".beetle_song",
       "size": 51968,
-      "vma": 29698944,
-      "lma": 29698944,
+      "vma": 29703104,
+      "lma": 29703104,
       "file_offset": 1280,
       "nobits": true
     },
     {
       "name": ".beetle_mem_gap",
       "size": 128,
-      "vma": 29750912,
-      "lma": 29750912,
+      "vma": 29755072,
+      "lma": 29755072,
       "file_offset": 1280,
       "nobits": true
     },
     {
       "name": ".beetle_lcd_frame",
       "size": 83136,
-      "vma": 29751040,
-      "lma": 29751040,
+      "vma": 29755200,
+      "lma": 29755200,
       "file_offset": 1280,
       "nobits": true
     },
     {
       "name": ".noinit",
-      "size": 10544,
+      "size": 12080,
       "vma": 29868032,
       "lma": 29868032,
       "file_offset": 512,
@@ -102,9 +102,9 @@
     },
     {
       "name": ".beetle_edit_scratch",
-      "size": 2576,
-      "vma": 29878576,
-      "lma": 29878576,
+      "size": 2704,
+      "vma": 29880112,
+      "lma": 29880112,
       "file_offset": 512,
       "nobits": true
     }

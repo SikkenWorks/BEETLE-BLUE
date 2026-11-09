@@ -14,7 +14,7 @@
   <a href="https://sikkenworks.github.io/BEETLE-BLUE/BEETLE-BLUE-Manager.html">All-in-One Manager</a>
 </p>
 
-<p align="center"><sub>Current firmware: V1.3 · Tested on two M-VAVE FM1 units · <a href="CHANGELOG.md">Release history</a> · <a href="validation/">Validation reports</a></sub></p>
+<p align="center"><sub>Current firmware: V1.3.1 · BEETLE BLUE field-tested on two M-VAVE FM1 units · <a href="CHANGELOG.md">Release history</a> · <a href="validation/">Validation reports</a></sub></p>
 
 > **Hardware tested.** BEETLE BLUE has been extensively tested by its developer on two physical M-VAVE FM1 units. Before updating, back up projects, document global User Kit settings and confirm a recovery procedure. Never update while there is unsaved music in RAM.
 
@@ -34,6 +34,12 @@ BEETLE BLUE is the drum-focused fork of [BEETLE](https://github.com/SikkenWorks/
 | Drum processing | Per-step FX, Punch-In FX, groove/ratchets, mute groups, snapshots and mixer |
 | Storage | 12 project slots, `.bdrum` exports, `BDR1 V33` project format |
 | USB capture | Stereo master or six mono stems at 44.1 kHz / 16-bit |
+
+## FM1 flash-chip compatibility
+
+BEETLE BLUE supports both the original **Puya P25Q80** (JEDEC `0x856014`) and the newer **UCUN UC25HQ80** (`0xB36014`). They are both 1 MiB SPI NOR parts. The firmware checks the ID before erasing or programming flash, and the included update loader uses the same two-chip allowlist. Unknown IDs remain read-only and cannot be used for flash writes.
+
+If an earlier firmware refuses an update on a UC25HQ80 unit, this release cannot retroactively change that older firmware's update loader. Use the FM1's supported official recovery/download route and make a full backup first. Do not overwrite the bootloader or format storage as a workaround. Project data formats and flash locations are unchanged. This exact V1.3.1 release has not yet been physically tested on a UC25HQ80-based FM1.
 
 ## On-device HELP
 
@@ -126,7 +132,7 @@ Project slots and imported samples share finite flash storage. `WIPE ALL STORAGE
 | [`BEETLE-BLUE-Project-Manager.html`](BEETLE-BLUE-Project-Manager.html) | Project/sample backup and transfer |
 | [`BEETLE-BLUE-Manager.html`](BEETLE-BLUE-Manager.html) | All-in-One web interface |
 
-**Installation:** this source bundle contains the V1.3 HELP and the paired **V1.3 WebInstaller**. Before flashing, read [STATUS.md](STATUS.md), verify your backups, and confirm a tested independent recovery procedure. Firmware packaging and hash verification are software checks, not a guarantee of safe hardware recovery.
+**Installation:** this source bundle contains the V1.3.1 HELP and the paired **V1.3.1 WebInstaller**. Before flashing, read [STATUS.md](STATUS.md), verify your backups, and confirm a tested independent recovery procedure. Firmware packaging and hash verification are software checks, not a guarantee of safe hardware recovery.
 
 The USB audio interface can expose stereo or six-channel mono capture, and has been tested as part of BEETLE BLUE development on physical FM1 hardware. Specific USB configurations and recovery paths should still be checked on the target setup. Native LCD reference images under `UI-CAPTURES-NATIVE-1920/` are screenshots of the C display renderer, not photos of hardware.
 
@@ -137,9 +143,14 @@ Provide the compatible JieLi Linux toolchain separately, then from the source di
 ```bash
 export JIELI_TOOLCHAIN=/path/to/jieli-linux-toolchains-20260730.1
 python firmware/fm1-native/build.py --drum-edition --beetle-storage-lab --beetle-v2 --updater --usb-audio
+python tools/build_blue_uc25_loader.py
+python tools/package_blue_uc25.py
+python tools/sync_blue_v131_web.py
+python tests/test_v131_uc25_release.py
+node tests/test_web_loader_v131.cjs
 ```
 
-The toolchain is not distributed in the release archive. Native build success is separate from on-device testing, OTA recovery validation and verified backups. Detailed version-by-version changes belong only in [CHANGELOG.md](CHANGELOG.md); technical checks are in `validation/`.
+The toolchain is not distributed in the release archive. The complete GPL loader source and required Felucca components are included under `firmware/fm1-loader/`, and `reference/v1.3-reference.fwsc` is a pinned packaging reference, not the current release. Native build success is separate from on-device testing, OTA recovery validation and verified backups. Detailed version-by-version changes belong only in [CHANGELOG.md](CHANGELOG.md); technical checks are in `validation/`.
 
 ## Reporting issues
 

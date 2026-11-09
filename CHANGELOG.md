@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## V1.3.1 — UC25HQ80 compatibility (2026-11-09)
+
+- Accept both `0x856014` (Puya P25Q80) and `0xB36014` (UCUN UC25HQ80) in app and built-in update loader via a shared JEDEC allowlist. Unknown chips are rejected before any program/erase command.
+- Rebuild the Felucca-family RAM OTA loader from full GPL source; keep SPL/bootheader unchanged. Retain verified official V15 return policy, OTA preemption and 15-minute timeout.
+- Do not change SPI opcodes, 1 MiB layout, Storage V2, BDR1 V33, drum/audio/Live Mode behavior or identity `FM-1_2224`.
+- Add dual-chip regression tests, full package validation, read-only build audit, and source-embedded loader to support reproducible releases.
+- Exact V1.3.1 update and cold-power-cycle persistence on UC25HQ80 hardware remain to be field-tested.
+
+---
+
 ## V1.3 — Release version update (2026-11-03)
 
 - Updated the BEETLE BLUE release number to **V1.3** in the native FM1 application and HELP, the `.fwsc` container, web tools and current documentation.
