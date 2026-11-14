@@ -161,3 +161,5 @@ Include the firmware version, page, exact control sequence, kit and component, w
 BEETLE BLUE is developed by **SikkenWorks** and derived from **BEETLE** and **ETCH**. The [Felucca project](https://github.com/hugelton/Felucca) by **Leo Kuroshita (@kurogedelic) / Hügelton Instruments** contributes FM1 platform foundations and the battery ADC voltage thresholds. **JieLi Technology** produces the target chipset/toolchain. Source-level licence notices, `LICENSE`, `LICENSES/`, and [full attributions](docs/CREDITS-AND-LICENSES.md) remain part of this source release.
 
 <p align="center"><strong>BEETLE BLUE · SikkenWorks · Born out of passion.</strong></p>
+
+You can also try BEETLE BLUE in the browser, no flashing needed, in the free community [FM-1 Emulator](https://fm1-emulator.atst.tools/).
