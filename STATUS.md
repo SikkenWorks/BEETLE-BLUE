@@ -1,15 +1,12 @@
-# BEETLE BLUE V1.3.1 — Release Status
+# BEETLE BLUE V1.4 — Release Status
 
-- **Firmware:** V1.3.1 complete `.fwsc` with native on-device version and matching WebInstaller.
-- **Identity:** `FM-1_2224` / `AC791N`, unchanged from V1.2.
-- **Storage / project format:** Storage V2 and `BDR1 V33`, unchanged; no format or data migration.
-- **Official stock return:** existing OTA policy accepts the verified M-VAVE V15 package using its pinned SHA-256 and vendor loader metadata. USB OTA retains priority over unfinished project/sample transfers and a bounded 15-minute session. No permissive bypass for unverified firmware.
-- **Bootloader:** the first 16 KiB flash boot bytes remain preserved. The bundled RAM OTA-loader is rebuilt from Felucca GPL source with the two-vendor JEDEC write whitelist; this changes `ota.bin` intentionally, without changing the SPL, stock-V15 source policy or storage layout.
-- **Hardware testing:** The developer reports extensive BEETLE BLUE testing on two physical FM1 units. A physical flash and stock V15 rollback of this exact V1.3.1 build is not independently recorded.
-- **Flash-chip support:** Both Puya `0x856014` and UC25HQ80 `0xB36014` explicitly accepted before program/erase in the app and the bundled OTA loader. Unknown IDs refused.
-- **New-chip test status:** Tested in software only; no physical UC25HQ80 FM1 available here.
-- **Docs:** README is the current operating manual; version history remains in CHANGELOG.
-- **Release checks:** see `validation/V1.3.1-VALIDATION.md` and `FIRMWARE-MANIFEST.json`.
+- **Firmware:** complete V1.4 `.fwsc`, with matching WebInstaller and Manager.
+- **Identity:** `FM-1_2224` / `AC791N`; Storage V2 and `BDR1 V33` unchanged.
+- **Flash support:** Puya P25Q80 `0x856014` and UCUN UC25HQ80 `0xB36014` in app and RAM loader; single-evaluation JEDEC detection with success-only caching.
+- **OTA:** known staged loader residues from V1.3, V1.3.1 and V1.4 are recognized; existing stock-V15 policy retained, with complete loader-body CRC preflight. Unknown staging contents and unsupported loader layouts are not blindly erased or accepted. V16 is not a V15-equivalent stock target.
+- **Boot:** protected first 16 KiB unchanged; rebuilt RAM update loader supplied with source. Existing projects and audio functions retained.
+- **Hardware:** BEETLE BLUE has been extensively tested by its developer on two FM1 units. The exact V1.4 physical Puya/UCUN OTA and stock return matrix is still open. See the executed software replay evidence in `validation/V1.4-VALIDATION.md`.
+- **Recovery:** if the currently installed V1.3.1 already blocks every OTA attempt, use the independent verified FM1 recovery route after backing up flash. The incoming package cannot fix its outgoing updater before it runs.
+- **Documentation:** README is the current user guide, CHANGELOG the release history.
 
-**V1.3.1 firmware SHA-256:** `78de3d0ddd47ffdf98795b4a75c033c33ad96c5c8431cb7e8225e98580f3455d`  
-**V1.3.1 native app SHA-256:** `5521434cf9a7b40c09e9abee986bb12dc53197bef7815dc13ea34d2817a4e373`
+Firmware SHA-256: `59399977c4a2d21771d1940820004c9010fa0c4d19005759e821e2965d453d74`.

@@ -8,4 +8,9 @@
  * Deny unknown IDs for WRITE only, retaining read-only backup paths. */
 #define FL_JEDEC_PUYA_P25Q80    0x856014u
 #define FL_JEDEC_UCUN_UC25HQ80  0xB36014u
-#define FL_JEDEC_OK(id) (((id) == FL_JEDEC_PUYA_P25Q80) || ((id) == FL_JEDEC_UCUN_UC25HQ80))
+#include <stdint.h>
+/* Evaluate the hardware-reading expression exactly once. */
+static inline __attribute__((always_inline)) int FL_JEDEC_OK(uint32_t id)
+{
+    return id == FL_JEDEC_PUYA_P25Q80 || id == FL_JEDEC_UCUN_UC25HQ80;
+}

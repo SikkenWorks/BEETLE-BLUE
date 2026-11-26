@@ -167,6 +167,20 @@ RAMINL uint32_t fl_read_jedec_spi(void)
     fl_cs(1);
     return id;
 }
+/* Cache only a confirmed supported ID for this power session. Called
+ * with interrupts off and XIP disabled; never cache a failed read. */
+#if !ETCH_FLASH_READ_ONLY
+static uint8_t fl_known_chip;
+RAMINL int fl_chip_known_spi(void)
+{
+    if (fl_known_chip) return 1;
+    for (unsigned attempt=0; attempt<3u; ++attempt) {
+        uint32_t id=fl_read_jedec_spi();
+        if (FL_JEDEC_OK(id)) { fl_known_chip=1u; return 1; }
+    }
+    return 0;
+}
+#endif
 static RAMFN uint32_t fl_jedec_ram(void)
 {
     fl_saved_t s; uint32_t id;
@@ -194,7 +208,7 @@ static RAMFN int fl_erase4k_ram(uint32_t off, uint32_t *took_us)
     if (fl_enter(&s)) return -2;
     /* After XIP is disabled, confirm this is a supported 1 MiB NOR.
      * Unknown IDs fail closed BEFORE Write Enable, erase or program. */
-    if (!FL_JEDEC_OK(fl_read_jedec_spi())) { fl_exit(&s); return -5; }
+    if (!fl_chip_known_spi()) { fl_exit(&s); return -5; }
     fl_wren();
     if (!(fl_rdsr(0x05) & 2u)) rc = -3;           /* WEL did not set */
     else {
@@ -214,7 +228,7 @@ static RAMFN int fl_prog_ram(uint32_t off, const uint8_t *src, uint32_t n, uint3
     if (fl_enter(&s)) return -2;
     /* After XIP is disabled, confirm this is a supported 1 MiB NOR.
      * Unknown IDs fail closed BEFORE Write Enable, erase or program. */
-    if (!FL_JEDEC_OK(fl_read_jedec_spi())) { fl_exit(&s); return -5; }
+    if (!fl_chip_known_spi()) { fl_exit(&s); return -5; }
     fl_wren();
     if (!(fl_rdsr(0x05) & 2u)) rc = -3;
     else {

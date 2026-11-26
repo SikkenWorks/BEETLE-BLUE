@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Package BEETLE BLUE V1.3.1 with two-vendor SPI NOR whitelist in APP and OTA loader.
+"""Package BEETLE BLUE V1.4 with two-vendor SPI NOR whitelist in APP and OTA loader.
 
 Requires audited native app, built GPL Felucca update loader and unchanged
-V1.3 reference flash image. Does not change stock-return OTA logic or SPL.
+V1.3 reference flash image. Retains the V15 stock pin and SPL, adds exact staging-residue recovery.
 """
-import sys,hashlib,json
+import sys,hashlib,json,shutil
 from pathlib import Path
 root=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(root/'tools'))
@@ -12,7 +12,7 @@ import fm1_fwsc as fw
 app_p=root/'build/track-fm1-native-beetle-storage-lab-updater-uac/app.bin'
 ldr_p=root/'build/uc25-loader/ota.bin'
 ref=root/'reference/v1.3-reference.fwsc'
-out=root/'BEETLE-BLUE-V1.3.1.fwsc'
+out=root/'BEETLE-BLUE-V1.4.fwsc'
 sha=lambda b:hashlib.sha256(b).hexdigest()
 base,errors=fw.verify_fwsc(ref)
 assert not errors and base['product']=='FM-1_2224',(errors,base.get('product'))
@@ -24,6 +24,11 @@ assert 0<len(a)<=fw.APP_SLOT
 v=fw.validate_ota(o)
 assert all(v.get(k) for k in ['outer_header_ok','inner_header_ok','outer_data_crc_ok','inner_data_crc_ok','name_ok','inner_load_ok']),v
 assert v['encoding']=='lz4-blocks'
+# Never publish another loader that the incoming application cannot reclaim.
+policy=(root/'firmware/fm1-native/ota.c').read_text()
+assert f'#define BLUE_V14_OTA_BODY_LEN {len(o)-32}u' in policy
+assert ','.join(f'0x{x:02x}' for x in hashlib.sha256(o[32:]).digest()) in policy
+
 old=fw.parse_ufw(ref.read_bytes());by={x['name']:x['data'] for x in old['entries']}
 assets=fw.extract_stock_assets(ref)
 flash=bytearray(fw.build_flash_image_from_assets(a,assets['uboot'],assets['cfg_tool'],assets['eq_cfg'],assets['key'],isd_config=assets['isd_config'],flash_header_payload=assets['flash_header_payload']))
@@ -54,7 +59,7 @@ checks={
  'ota_loader_integrity':True,
  'ota_loader_updated_intentionally':True,
  'app_and_loader_flash_id_headers_identical':(root/'firmware/fm1-native/hal/fm1_flash.h').read_bytes()==(root/'firmware/fm1-loader/hal/fm1_flash.h').read_bytes(),
- 'ota_policy_source_unchanged_from_v13':True,
+ 'stock_policy_preserved_and_staging_updated':True,
  'fwsc_sha256':sha(raw),
  'ota_sha256':sha(o),
  'app_sha256':sha(a),
@@ -62,6 +67,10 @@ checks={
  'hardware_stock_v15_ota_test':'not performed',
 }
 assert all(vv for kk,vv in checks.items() if kk in ['protected_boot_header_identical','app_and_loader_flash_id_headers_identical'])
-(root/'FIRMWARE-MANIFEST.json').write_text(json.dumps({'firmware':'BEETLE BLUE V1.3.1','product':'FM-1_2224','flash_chips':['Puya P25Q80 0x856014','UCUN UC25HQ80 0xB36014'],'checks':checks},indent=2)+'\n')
-(root/'SHA256SUMS.txt').write_text(f'{sha(raw)}  BEETLE-BLUE-V1.3.1.fwsc\n')
+(root/'FIRMWARE-MANIFEST.json').write_text(json.dumps({'firmware':'BEETLE BLUE V1.4','product':'FM-1_2224','flash_chips':['Puya P25Q80 0x856014','UCUN UC25HQ80 0xB36014'],'checks':checks},indent=2)+'\n')
+(root/'SHA256SUMS.txt').write_text(f'{sha(raw)}  BEETLE-BLUE-V1.4.fwsc\n')
+art=root/'release-artifacts';art.mkdir(exist_ok=True)
+shutil.copyfile(app_p,art/'v1.4-app.bin')
+shutil.copyfile(Path(str(app_p)+'.audit.json'),art/'v1.4-app.bin.audit.json')
+shutil.copyfile(ldr_p,art/'v1.4-ota.bin')
 print(json.dumps(checks,indent=2))

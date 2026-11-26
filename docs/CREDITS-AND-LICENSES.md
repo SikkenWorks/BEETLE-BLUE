@@ -41,3 +41,7 @@ The FM1 WebInstaller's MIDI/OTA transport derives from Felucca's open-source upd
 ## Licence, redistribution and limitations
 
 Keep complete corresponding source, `LICENSE`, `LICENSES/`, the retained source-level notices and this document with redistributions of the firmware. Do not mistake additional attributions for sublicensing third-party recordings or vendor firmware. The source-code audit and successful build are **not** a physical FM1 test, nor proof of safe OTA recovery, analog-output levels or accurate battery charging.
+
+## Flash compatibility and OTA
+
+The FM1 RAM update-loader and SPI NOR HAL derive from Felucca by Leo Kuroshita / Hügelton Instruments (GPL-3.0-only in the bundled source). Credit to Sven / The Firmware Hub for reporting the UC25HQ80 JEDEC compatibility issue. V1.4 staging-residue recognition, caching and regression tests are SikkenWorks modifications. The current Felucca 1.8.2 hardware report is an upstream reference, not a BEETLE BLUE hardware test.

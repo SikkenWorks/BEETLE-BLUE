@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## V1.4 — OTA staging recovery and dual-chip identification (2026-11-26)
+
+- Recognize exact residual loaders from V1.3, V1.3.1 and V1.4, including the successful-update case where the final commit/owner sector has been erased.
+- Replace double-evaluating JEDEC macro with single-evaluation predicate and cache only confirmed IDs in app and RAM loader. Retry failed reads. Preflight chip identity before any OTA erase.
+- Preserve V15 image pin, OTA priority, timeout and protected boot bytes; verify the entire stock loader CRC before staging.
+- Add real-package first-stage SysEx and second-stage flash replay, including the reproduced V1.3.1 refusal; retain unknown-content refusal and app-only writer bounds.
+- Synchronize package, webtools, HELP and current guide. V16 is not silently accepted under the V15 policy.
+
+---
+
 ## V1.3.1 — UC25HQ80 compatibility (2026-11-09)
 
 - Accept both `0x856014` (Puya P25Q80) and `0xB36014` (UCUN UC25HQ80) in app and built-in update loader via a shared JEDEC allowlist. Unknown chips are rejected before any program/erase command.

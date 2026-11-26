@@ -37,6 +37,7 @@ static void ota_frame_done(void);
 static uint32_t ota_now_ms(void);
 static void ota_idle(void);
 static int ota_aborted(void);
+static int ota_flash_ready(void);
 static int ota_erase(uint32_t off);
 static int ota_prog(uint32_t off, const void *p, uint32_t n);
 static int ota_fread(uint32_t off, void *p, uint32_t n);
@@ -425,13 +426,22 @@ static int beetle_validate_incoming_loader_crc(uint32_t body_off, uint32_t body_
     }
     return seen == expected ? 0 : -11;
 }
-static int etch_ota_hash(uint32_t off,uint8_t *b,uint8_t from_host){
+/* V1.3.1's loader clears the final commit sector on success but
+ * leaves the loader body behind. Pin that actual body too. */
+#define BLUE_V131_OTA_BODY_LEN 7280u
+static const uint8_t blue_v131_ota_digest[32]={0xfb,0x92,0x5c,0x85,0xcd,0xf3,0x74,0x8d,0x3c,0x20,0x77,0x02,0xe6,0x3d,0x21,0xd9,0xf3,0x0f,0x78,0x5b,0xa5,0x4c,0xb1,0x1c,0x3a,0x2c,0x13,0x60,0x76,0x23,0x27,0x3c};
+#define BLUE_V14_OTA_BODY_LEN 7395u
+static const uint8_t blue_v14_ota_digest[32]={0xba,0xad,0x4d,0x1b,0xf5,0x8b,0xd6,0x24,0x47,0x9f,0x07,0xbb,0x1f,0xce,0xe4,0x0d,0x49,0xe1,0x2c,0xb5,0xad,0xa1,0x42,0x0e,0x75,0x63,0xb8,0xe4,0x8f,0x3a,0x6c,0xdd};
+static int ota_hash_body(uint32_t off,uint8_t *b,uint8_t from_host,uint32_t len,const uint8_t *want){
  struct etch_sha256 h;uint8_t digest[32];etch_sha256_init(&h);
- for(uint32_t i=0;i<ETCH_OTA_BODY_LEN;){uint32_t n=ETCH_OTA_BODY_LEN-i;if(n>512)n=512;
+ for(uint32_t i=0;i<len;){uint32_t n=len-i;if(n>512)n=512;
   if(from_host?ota_read(off+i,b,n):ota_fread(off+i,b,n))return 0;
   etch_sha256_add(&h,b,n);i+=n;ota_idle();
  }
- etch_sha256_end(&h,digest);return ota_memeq(digest,etch_ota_digest,32);
+ etch_sha256_end(&h,digest);return ota_memeq(digest,want,32);
+}
+static int etch_ota_hash(uint32_t off,uint8_t *b,uint8_t from_host){
+ return ota_hash_body(off,b,from_host,ETCH_OTA_BODY_LEN,etch_ota_digest);
 }
 /* No automatic claim of nonblank unknown bytes in this reserved region.
  * A complete pinned older loader or our ownership token permits a retry. */
@@ -440,7 +450,15 @@ static int etch_ota_available(uint8_t *b){
  if(ota_fread(ETCH_OTA_OWNER,b,16))return 0;
  if(ota_memeq(b,etch_ota_owner,16)||ota_memeq(b,etch_ota_old_owner,16))return 1;
  if(ota_fread(OTA_AREA,head,32))return 0;
- if(ota_rd16(head)==ota_crc16(head+2,30,0)&&ota_rd32(head+4)==OTA_AREA&&ota_rd32(head+8)==ETCH_OTA_BODY_LEN+32&&ota_memeq(head+16,(const uint8_t*)"LOADER.BIN",10)&&etch_ota_hash(OTA_AREA+32,b,0))return 1;
+ if(ota_rd16(head)==ota_crc16(head+2,30,0)&&ota_rd32(head+4)==OTA_AREA&&
+    ota_memeq(head+16,(const uint8_t*)"LOADER.BIN",10)){
+  uint32_t len=ota_rd32(head+8);
+  if(len==ETCH_OTA_BODY_LEN+32u&&etch_ota_hash(OTA_AREA+32,b,0))return 1;
+  if(len==BLUE_V131_OTA_BODY_LEN+32u&&
+     ota_hash_body(OTA_AREA+32,b,0,BLUE_V131_OTA_BODY_LEN,blue_v131_ota_digest))return 1;
+  if(len==BLUE_V14_OTA_BODY_LEN+32u&&
+     ota_hash_body(OTA_AREA+32,b,0,BLUE_V14_OTA_BODY_LEN,blue_v14_ota_digest))return 1;
+ }
  for(uint32_t i=0;i<OTA_AREA_LEN;i+=512){if(ota_fread(OTA_AREA+i,b,512))return 0;for(uint32_t j=0;j<512;j++)if(b[j]!=255)return 0;ota_idle();}
  return 1;
 }
@@ -499,6 +517,8 @@ static int ota_stage(void)                       /* steps 1..6; 0 = host said su
     if(len==OTA_LDR_LEN && ota_rd16(b)==OTA_LDR_HCRC &&
        ota_rd16(b+2)==OTA_LDR_DCRC && etch_ota_stock(fl_off,b)) {
         official_stock_restore=1u;
+        rc=beetle_validate_incoming_loader_crc(ota_off+32u,len,proposed_loader_crc,mine);
+        if(rc)return rc;
     } else {
         compatible_community_loader=(uint8_t)beetle_compatible_felucca_loader(b,len);
         /* Keep recognizing the original known loader even if its label
@@ -519,6 +539,7 @@ static int ota_stage(void)                       /* steps 1..6; 0 = host said su
         if(rc)return rc;
     }
     if(!etch_ota_available(b))return -15;
+    if(!ota_flash_ready())return -25;
     /* 4. stage the package's loader: erase, body, verify, head last */
     ota_show(3, 0);
     if (ota_read(ota_off, b, 512))

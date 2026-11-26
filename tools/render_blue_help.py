@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compile the actual V1.3.1 on-device HELP draw branch and export native LCD captures.
+"""Compile the actual V1.4 on-device HELP draw branch and export native LCD captures.
 No approximated/mock text positioning. Reference captures are NOT hardware photographs.
 """
 from pathlib import Path
@@ -42,4 +42,4 @@ for topic,page,name in [(0,0,'HELP-START'),(1,0,'HELP-LANE-LENGTHS'),(7,0,'HELP-
  ppm=b/(name+'.ppm');subprocess.run([str(exe),str(topic),str(page),str(ppm)],check=True)
  im=Image.open(ppm).convert('RGB');im.resize((1920,1920),Image.Resampling.NEAREST).save(out/(name+'.png'))
  print(name, (out/(name+'.png')).stat().st_size)
-print('PASS: five V1.3.1 HELP captures extracted from actual native LCD rendering branch')
+print('PASS: five V1.4 HELP captures extracted from actual native LCD rendering branch')

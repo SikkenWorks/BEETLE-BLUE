@@ -38,6 +38,15 @@ static void ota_idle(void){
   }
  }
 }
+static int ota_flash_ready(void){
+#if ETCH_NATIVE_OTA && !ETCH_FLASH_READ_ONLY
+ for(uint8_t i=0;i<3u;i++){
+  fm1_irq_off();uint32_t id=FL_FAR(fl_jedec_ram)();fm1_irq_enable_all();
+  fm1_wdt_feed();if(FL_JEDEC_OK(id))return 1;
+ }
+#endif
+ return 0;
+}
 static int ota_erase(uint32_t off){
  if(!ETCH_NATIVE_OTA||!native_updating||!FL_IN(off,0x1000u,OTA_AREA,OTA_AREA+OTA_AREA_LEN)||(off&0xfffu))return -8;
  uint32_t took;fm1_irq_off();int rc=FL_FAR(fl_erase4k_ram)(off,&took);fm1_irq_enable_all();fm1_wdt_feed();return rc;

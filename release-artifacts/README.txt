@@ -1,1 +1,1 @@
-BEETLE BLUE V1.3 native, audited application. Full flashable package: ../BEETLE-BLUE-V1.3.fwsc. Use tools/build_blue_v13_package.py with reference/packaging-base.fwsc to reproduce the wrapper. The toolchain is external.
+BEETLE BLUE V1.4 native app, app audit and RAM OTA loader. Current flashable package: ../BEETLE-BLUE-V1.4.fwsc. Rebuild using the README.
